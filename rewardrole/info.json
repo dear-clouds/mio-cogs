@@ -1,0 +1,95 @@
+{
+    "name": "RewardRole",
+    "description": "Assign a role to users who meet specific message count criteria",
+    "authors": [
+        {
+            "name": "Mio.",
+            "discord": "Mio.#9172",
+            "github": "https://github.com/dear-clouds"
+        }
+    ],
+    "version": "1.0.0",
+    "minimum_bot_version": "3.4.0",
+    "tags": ["role", "reward", "message"],
+    "config": {
+        "roles": {}
+    },
+    "commands": [
+        {
+            "name": "rewardrole",
+            "description": "Commands for configuring RewardRole",
+            "guild_only": true,
+            "checks": [
+                "admin_or_permissions(manage_guild=True)"
+            ],
+            "commands": [
+                {
+                    "name": "add",
+                    "description": "Add a role condition for a specific role",
+                    "params": [
+                        {
+                            "name": "role",
+                            "type": "Role",
+                            "description": "The role for which to add a condition"
+                        },
+                        {
+                            "name": "min_messages",
+                            "type": "int",
+                            "description": "The minimum number of messages a user must send within the timeframe to be eligible for the reward role"
+                        },
+                        {
+                            "name": "timeframe_days",
+                            "type": "int",
+                            "description": "The number of days within which a user must send the minimum number of messages to be eligible for the reward role"
+                        },
+                        {
+                            "name": "reward_role",
+                            "type": "Role",
+                            "description": "The role to assign to users who meet the message count criteria"
+                        },
+                        {
+                            "name": "excluded_roles",
+                            "type": "Role",
+                            "description": "Roles whose members will be excluded from eligibility for the reward role",
+                            "greedy": true
+                        },
+                        {
+                            "name": "ignored_channels",
+                            "type": "TextChannel",
+                            "description": "Channels whose messages will not count towards the message count criteria",
+                            "greedy": true
+                        }
+                    ]
+                },
+                {
+                    "name": "remove",
+                    "description": "Remove a role condition for a specific role",
+                    "params": [
+                        {
+                            "name": "role",
+                            "type": "Role",
+                            "description": "The role for which to remove the condition"
+                        }
+                    ]
+                },
+                {
+                    "name": "list",
+                    "description": "List the configured role conditions"
+                }
+            ]
+        }
+    ],
+    "events": [
+        {
+            "name": "on_message",
+            "description": "Assign the reward role to users who meet the message count criteria",
+            "params": [
+                {
+                    "name": "message",
+                    "type": "Message",
+                    "description": "The message that triggered the event"
+                }
+            ]
+        }
+    ]
+}

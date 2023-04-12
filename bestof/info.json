@@ -1,0 +1,95 @@
+{
+    "name": "BestOf",
+    "authors": [
+        {
+            "name": "Mio.",
+            "discord": "Mio.#9172",
+            "github": "https://github.com/dear-clouds"
+        }
+    ],
+    "version": "1.0.0",
+    "description": "A cog for running a movie/TV show voting system and creating Plex collections based on the results.",
+    "minimum_bot_version": "3.0.0",
+    "required_dependencies": [
+        "plexapi",
+        "dateparser"
+    ],
+    "commands": [
+        {
+            "name": "setplex",
+            "description": "Sets the Plex server URL and authentication token for the cog.",
+            "usage": "!setplex <url> <token>",
+            "required_args": 2,
+            "guild_only": true,
+            "is_owner": true,
+            "examples": [
+                "!setplex https://plex.example.com abcdefg123456789"
+            ]
+        },
+        {
+            "name": "add_vote",
+            "description": "Adds a user's vote for a movie/TV show title to the voting system.",
+            "usage": "!add_vote <library_name> <title> [--is_tv_show]",
+            "required_args": 2,
+            "guild_only": true,
+            "examples": [
+                "!add_vote Movies \"The Shawshank Redemption\"",
+                "!add_vote TV Shows \"Breaking Bad\" --is_tv_show"
+            ]
+        },
+        {
+            "name": "topvotes",
+            "description": "Shows the top movie/TV show titles based on the votes received.",
+            "usage": "!topvotes [years]",
+            "guild_only": true,
+            "examples": [
+                "!topvotes",
+                "!topvotes 2"
+            ]
+        },
+        {
+            "name": "create_collection",
+            "description": "Creates a Plex collection based on the top movie/TV show titles.",
+            "usage": "!create_collection",
+            "guild_only": true,
+            "is_owner": true,
+            "examples": [
+                "!create_collection"
+            ]
+        },
+        {
+            "name": "vote",
+            "description": "Alias for `add_vote` command.",
+            "usage": "!vote <library_name> <title> [--is_tv_show]",
+            "required_args": 2,
+            "guild_only": true,
+            "hidden": true
+        },
+        {
+            "name": "setposter",
+            "description": "Sets the poster URL for the created Plex collection.",
+            "usage": "!setposter <url>",
+            "required_args": 1,
+            "guild_only": true,
+            "is_owner": true,
+            "examples": [
+                "!setposter https://example.com/poster.jpg"
+            ]
+        },
+        {
+            "name": "setdescription",
+            "description": "Sets the description for the created Plex collection.",
+            "usage": "!setdescription <description>",
+            "required_args": 1,
+            "guild_only": true,
+            "is_owner": true,
+            "examples": [
+                "!setdescription The best movies and TV shows of the year!"
+            ]
+        }
+    ],
+    "config": {
+        "plex_server_url": null,
+        "plex_server_auth_token": null
+    }
+}
