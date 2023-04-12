@@ -54,29 +54,34 @@ class BestOf(commands.Cog):
 
         # Send a message with the list of libraries and their numbers
         library_list = "\n".join(f"{idx + 1}. {lib.title}" for idx, lib in enumerate(allowed_libraries))
-        message = await ctx.send(f"Please choose a library by typing its number:\n{library_list}")
+        
+        # Loop to allow multiple library selections
+        while True:
+            message = await ctx.send(f"Please choose a library by typing its number or type 'done' when finished:\n{library_list}")
 
-        # Check if the message author is the same as the command author and if the content is a valid number
-        def check(msg):
-            return (
-                msg.author == ctx.author
-                and msg.content.isdigit()
-                and 1 <= int(msg.content) <= len(allowed_libraries)
-            )
+            # Check if the message author is the same as the command author and if the content is a valid number
+            def check(msg):
+                return (
+                    msg.author == ctx.author
+                    and (msg.content.isdigit() and 1 <= int(msg.content) <= len(allowed_libraries) or msg.content.lower() == 'done')
+                )
 
-        try:
-            user_response = await self.bot.wait_for("message", check=check, timeout=60)
-        except asyncio.TimeoutError:
-            await ctx.send("Time's up! Please try again.")
-            return
+            try:
+                user_response = await self.bot.wait_for("message", check=check, timeout=60)
+            except asyncio.TimeoutError:
+                await ctx.send("Time's up! Please try again.")
+                return
 
-        selected_library = allowed_libraries[int(user_response.content) - 1]
-        selected_library = libraries[index].title
-        allowed_libraries = await self.config.allowed_libraries()
-        allowed_libraries.append(selected_library)
-        await self.config.allowed_libraries.set(allowed_libraries)
+            # If user types 'done', break the loop
+            if user_response.content.lower() == 'done':
+                break
 
-        await ctx.send(f"Allowed library updated: {selected_library}")
+            selected_library = allowed_libraries[int(user_response.content) - 1]
+            allowed_libraries_config = await self.config.allowed_libraries()
+            allowed_libraries_config.append(selected_library.title)
+            await self.config.allowed_libraries.set(allowed_libraries_config)
+
+            await ctx.send(f"Allowed library updated: {selected_library.title}")
 
     @commands.command()
     async def vote(self, ctx):
