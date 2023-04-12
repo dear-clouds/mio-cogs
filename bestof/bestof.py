@@ -28,25 +28,25 @@ class BestOf(commands.Cog):
     @commands.group(autohelp=True)
     @commands.guild_only()
     @commands.is_owner()
-    async def set(self, ctx):
+    async def bestof(self, ctx):
         """BestOf settings."""
         pass
 
-    @set.command(name="url")
+    @bestof.command(name="url")
     async def set_url(self, ctx, url: str):
         """Sets the Plex server URL."""
         await self.config.plex_server_url.set(url)
         self.plex = PlexServer(url, await self.config.plex_server_auth_token())
         await ctx.send("Plex server URL updated.")
 
-    @set.command(name="token")
+    @bestof.command(name="token")
     async def set_token(self, ctx, token: str):
         """Sets the Plex server authentication token."""
         await self.config.plex_server_auth_token.set(token)
         self.plex = PlexServer(await self.config.plex_server_url(), token)
         await ctx.send("Plex server authentication token updated.")
         
-    @set.command(name="votingmonth")
+    @bestof.command(name="votingmonth")
     async def set_votingmonth(self, ctx, month: int):
         """Sets the month when the voting is allowed."""
         if 1 <= month <= 12:
@@ -55,19 +55,19 @@ class BestOf(commands.Cog):
         else:
             await ctx.send("Invalid month. Please enter a value between 1 and 12.")
             
-    @set.command(name="poster")
+    @bestof.command(name="poster")
     async def set_poster(self, ctx, url: str):
         """Sets the poster URL for the created Plex collection."""
         self.poster_url = url
         await ctx.send(f"Poster URL set to: {url}")
 
-    @set.command(name="description")
+    @bestof.command(name="description")
     async def set_description(self, ctx, *, description: str):
         """Sets the description for the created Plex collection."""
         self.description = description
         await ctx.send("Description set.")
 
-    @set.command(name="libraries")
+    @bestof.command(name="libraries")
     async def set_libraries(self, ctx: commands.Context):
         libraries = self.plex.library.sections()
         allowed_libraries = [lib for lib in libraries if lib.type in {"movie", "show"}]
