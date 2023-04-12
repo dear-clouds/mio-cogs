@@ -107,17 +107,17 @@ class BestOf(commands.Cog):
 
         embed = discord.Embed(title="Select a Library to Vote In", color=discord.Color.blue())
         for idx, library_name in enumerate(allowed_libraries):
-            embed.add_field(name=f"{idx + 1}. {library_name}", value="\u200b", inline=False)
+            embed.add_field(name=f"{chr(ord('🇦') + idx)}. {library_name}", value="\u200b", inline=True)
 
         message = await ctx.send(embed=embed)
-        for idx in range(len(allowed_libraries)):
-            await message.add_reaction(f"{idx + 1}\N{combining enclosing keycap}")
+        for idx, _ in enumerate(allowed_libraries):
+            await message.add_reaction(chr(ord("🇦") + idx))
 
         def check(reaction, user):
             return (
                 user == ctx.author
                 and reaction.message.id == message.id
-                and reaction.emoji in [f"{i + 1}\N{combining enclosing keycap}" for i in range(len(allowed_libraries))]
+                and reaction.emoji in [chr(ord("🇦") + i) for i in range(len(allowed_libraries))]
             )
 
         try:
@@ -126,7 +126,7 @@ class BestOf(commands.Cog):
             await ctx.send("No response received. Vote canceled.")
             return
 
-        index = int(reaction.emoji[0]) - 1
+        index = ord(reaction.emoji) - ord("🇦")
         selected_library = allowed_libraries[index]
 
         # Get the library object from Plex server
