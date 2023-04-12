@@ -61,36 +61,29 @@ class BestOf(commands.Cog):
         libraries = self.plex.library.sections()
         allowed_libraries = [lib for lib in libraries if lib.type in {"movie", "show"}]
 
-        # Send a message with the list of libraries and their numbers
+        # Send an embed with the list of libraries and their numbers
         library_list = "\n".join(f"{idx + 1}. {lib.title}" for idx, lib in enumerate(allowed_libraries))
-        
-        # Loop to allow multiple library selections
-        while True:
-            message = await ctx.send(f"Please choose a library by typing its number or type 'done' when finished:\n{library_list}")
+        embed = discord.Embed(title="Available Libraries", description=library_list, color=discord.Color.green())
+        message = await ctx.send(embed=embed)
 
-            # Check if the message author is the same as the command author and if the content is a valid number
-            def check(msg):
-                return (
-                    msg.author == ctx.author
-                    and (msg.content.isdigit() and 1 <= int(msg.content) <= len(allowed_libraries) or msg.content.lower() == 'done')
-                )
+        # Request the user to input the library numbers
+        await ctx.send("Please type the numbers of the libraries you want to allow, separated by spaces (e.g. '1 2 3 4 7'):")
 
-            try:
-                user_response = await self.bot.wait_for("message", check=check, timeout=60)
-            except asyncio.TimeoutError:
-                await ctx.send("Time's up! Please try again.")
-                return
+        # Check if the message author is the same as the command author and if the content contains valid numbers
+        def check(msg):
+            if msg.author != ctx.author:
+                return False
+            numbers = msg.content.split()
+            return all(num.isdigit() and 1 <= int(num) <= len(allowed_libraries) for num in numbers)
 
-            # If user types 'done', break the loop
-            if user_response.content.lower() == 'done':
-                break
+        user_response = await self.bot.wait_for("message", check=check, timeout=60)
 
-            selected_library = allowed_libraries[int(user_response.content) - 1]
-            allowed_libraries_config = await self.config.allowed_libraries()
-            allowed_libraries_config.append(selected_library.title)
-            await self.config.allowed_libraries.set(allowed_libraries_config)
+        # Update the allowed libraries configuration
+        selected_library_numbers = [int(num) for num in user_response.content.split()]
+        allowed_libraries_config = [allowed_libraries[i - 1].title for i in selected_library_numbers]
+        await self.config.allowed_libraries.set(allowed_libraries_config)
 
-            await ctx.send(f"Allowed library updated: {selected_library.title}")
+        await ctx.send(f"Allowed libraries updated: {', '.join(allowed_libraries_config)}")
 
     @commands.command()
     async def vote(self, ctx):
@@ -346,3 +339,8 @@ class BestOf(commands.Cog):
         """Sets the description for the created Plex collection."""
         self.description = description
         await ctx.send("Description set.")
+
+    def setup(bot):
+        cog = BestOf(bot)
+        bot.add_cog(cog)
+        bot.loop.create_task(cog.initialize())
