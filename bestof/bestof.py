@@ -6,7 +6,6 @@ from plexapi.server import PlexServer
 from datetime import datetime
 from typing import Optional
 
-
 class BestOf(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -29,35 +28,47 @@ class BestOf(commands.Cog):
     @commands.group(autohelp=True)
     @commands.guild_only()
     @commands.is_owner()
-    async def setplex(self, ctx):
-        """Plex server settings."""
+    async def set(self, ctx):
+        """BestOf settings."""
         pass
 
-    @setplex.command(name="url")
-    async def setplex_url(self, ctx, url: str):
+    @set.command(name="url")
+    async def set_url(self, ctx, url: str):
         """Sets the Plex server URL."""
         await self.config.plex_server_url.set(url)
         self.plex = PlexServer(url, await self.config.plex_server_auth_token())
         await ctx.send("Plex server URL updated.")
 
-    @setplex.command(name="token")
-    async def setplex_token(self, ctx, token: str):
+    @set.command(name="token")
+    async def set_token(self, ctx, token: str):
         """Sets the Plex server authentication token."""
         await self.config.plex_server_auth_token.set(token)
         self.plex = PlexServer(await self.config.plex_server_url(), token)
         await ctx.send("Plex server authentication token updated.")
         
-    @setplex.command(name="votingmonth")
-    async def setplex_votingmonth(self, ctx, month: int):
+    @set.command(name="votingmonth")
+    async def set_votingmonth(self, ctx, month: int):
         """Sets the month when the voting is allowed."""
         if 1 <= month <= 12:
             await self.config.voting_month.set(month)
             await ctx.send(f"Voting month updated to {month}.")
         else:
             await ctx.send("Invalid month. Please enter a value between 1 and 12.")
+            
+    @set.command(name="poster")
+    async def set_poster(self, ctx, url: str):
+        """Sets the poster URL for the created Plex collection."""
+        self.poster_url = url
+        await ctx.send(f"Poster URL set to: {url}")
 
-    @setplex.command(name="libraries")
-    async def setplex_libraries(self, ctx: commands.Context):
+    @set.command(name="description")
+    async def set_description(self, ctx, *, description: str):
+        """Sets the description for the created Plex collection."""
+        self.description = description
+        await ctx.send("Description set.")
+
+    @set.command(name="libraries")
+    async def set_libraries(self, ctx: commands.Context):
         libraries = self.plex.library.sections()
         allowed_libraries = [lib for lib in libraries if lib.type in {"movie", "show"}]
 
@@ -299,7 +310,7 @@ class BestOf(commands.Cog):
 
     @commands.command()
     @commands.is_owner()
-    async def create_collection(self, ctx):
+    async def createcollection(self, ctx):
         """Create the Plex collection."""
         # Get the most voted titles
         top_movies = await self.get_top_movies()
@@ -327,22 +338,3 @@ class BestOf(commands.Cog):
             collection.addItems(movie)
 
         await ctx.send("Collections created.")
-
-    @commands.command()
-    async def vote(self, ctx, library_name: str, title: str):
-        """Vote for the titles you think were the best this year! Only 1 title per library."""
-        await self.add_vote(ctx, library_name, title)
-
-    @commands.command()
-    @commands.is_owner()
-    async def setposter(self, ctx, url: str):
-        """Sets the poster URL for the created Plex collection."""
-        self.poster_url = url
-        await ctx.send(f"Poster URL set to: {url}")
-
-    @commands.command()
-    @commands.is_owner()
-    async def setdescription(self, ctx, *, description: str):
-        """Sets the description for the created Plex collection."""
-        self.description = description
-        await ctx.send("Description set.")
