@@ -14,11 +14,11 @@ class BestOf(commands.Cog):
         self.config.register_global(
             plex_server_url=None,
             plex_server_auth_token=None,
-            allowed_libraries=[]
+            allowed_libraries=[],
+            voting_month=1
         )
         self.config.register_user(votes={})
         self.plex = None
-        self.current_month = datetime.today().month
 
     async def initialize(self):
         await self.bot.wait_until_ready()
@@ -46,6 +46,15 @@ class BestOf(commands.Cog):
         await self.config.plex_server_auth_token.set(token)
         self.plex = PlexServer(await self.config.plex_server_url(), token)
         await ctx.send("Plex server authentication token updated.")
+        
+    @setplex.command(name="votingmonth")
+    async def setplex_votingmonth(self, ctx, month: int):
+        """Sets the month when the voting is allowed."""
+        if 1 <= month <= 12:
+            await self.config.voting_month.set(month)
+            await ctx.send(f"Voting month updated to {month}.")
+        else:
+            await ctx.send("Invalid month. Please enter a value between 1 and 12.")
 
     @setplex.command(name="libraries")
     async def setplex_libraries(self, ctx: commands.Context):
@@ -130,8 +139,10 @@ class BestOf(commands.Cog):
         await self.add_vote(ctx, selected_library, title)
 
     async def add_vote(self, ctx, library_name: str, title: str, is_tv_show: bool = False):
-        if self.current_month != 1:
-            await ctx.send("Voting is only allowed during January.")
+        voting_month = await self.config.voting_month()
+        current_month = datetime.today().month
+        if current_month != voting_month:
+            await ctx.send(f"Voting is only allowed during month {voting_month}.")
             return
 
         # Ensure the Plex server has been initialized
@@ -271,8 +282,9 @@ class BestOf(commands.Cog):
                 movies, key=movies.get, reverse=True)[:3]
 
         # Create and send an embed with the top titles for each library
+        current_year = datetime.today().year
         embed = discord.Embed(
-            title=f"Top Titles for the Past {years} Years", color=discord.Color.blurple())
+            title=f"Top Titles for {current_year - years + 1} - {current_year}", color=discord.Color.blurple())
         for library_name, movies in top_movies.items():
             library = self.plex.library.section(library_name)
             movie_str = ""
@@ -289,10 +301,6 @@ class BestOf(commands.Cog):
     @commands.is_owner()
     async def create_collection(self, ctx):
         """Create the Plex collection."""
-        if self.current_month != 2:
-            await ctx.send("This command can only be run during February.")
-            return
-
         # Get the most voted titles
         top_movies = await self.get_top_movies()
 
