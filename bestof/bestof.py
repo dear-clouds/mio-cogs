@@ -10,7 +10,7 @@ from typing import Optional
 class BestOf(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(self, identifier=9876543210)
+        self.config = Config.get_conf(self, identifier=199523456789)
         self.config.register_global(
             plex_server_url=None,
             plex_server_auth_token=None,
