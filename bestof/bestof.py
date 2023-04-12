@@ -10,7 +10,7 @@ from typing import Optional
 class BestOf(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(self, identifier=1234567890)
+        self.config = Config.get_conf(self, identifier=9876543210)
         self.config.register_global(
             plex_server_url=None,
             plex_server_auth_token=None,
@@ -346,8 +346,3 @@ class BestOf(commands.Cog):
         """Sets the description for the created Plex collection."""
         self.description = description
         await ctx.send("Description set.")
-
-    def setup(bot):
-        cog = BestOf(bot)
-        bot.add_cog(cog)
-        bot.loop.create_task(cog.initialize())
