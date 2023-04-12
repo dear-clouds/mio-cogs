@@ -118,6 +118,12 @@ class BestOf(commands.Cog):
         index = int(reaction.emoji[0]) - 1
         selected_library = allowed_libraries[index]
 
+        # Get the library object from Plex server
+        library = self.plex.library.section(selected_library)
+
+        # Determine if the library is for TV shows
+        is_tv_show = library.type == "show"
+
         await ctx.send(f"Selected library: {selected_library}. Please type the title you want to vote for.")
         def message_check(m):
             return m.author == ctx.author and m.channel == ctx.channel
@@ -129,7 +135,8 @@ class BestOf(commands.Cog):
             return
 
         title = title_message.content
-        await self.add_vote(ctx, selected_library, title)
+        await self.add_vote(ctx, selected_library, title, is_tv_show=is_tv_show)
+
 
     async def add_vote(self, ctx, library_name: str, title: str, is_tv_show: bool = False):
         voting_month = await self.config.voting_month()
