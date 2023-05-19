@@ -1,4 +1,5 @@
 from .rewardrole import RewardRole
 
-def setup(bot):
-    bot.add_cog(RewardRole(bot))
+async def setup(bot):
+    cog = RewardRole(bot)
+    await bot.add_cog(cog)
