@@ -125,7 +125,9 @@ class RewardRole(commands.Cog):
                 timeframe = timedelta(days=role_data["timeframe_days"])
                 after = message.created_at - timeframe
 
-                messages = [msg async for msg in message.channel.history(limit=100, after=after)]
+                messages = []
+                async for msg in message.channel.history(limit=100, after=after):
+                    messages.append(msg)
                 user_messages = [msg for msg in messages if msg.author == message.author]
 
                 if len(user_messages) >= min_messages:
