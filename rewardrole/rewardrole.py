@@ -34,10 +34,7 @@ class RewardRole(commands.Cog):
                                 if channel.id in role_data["ignored_channels"]:
                                     continue
 
-                                messages = []
-                                async for msg in channel.history(limit=100, after=after):
-                                    messages.append(msg)
-
+                                messages = await channel.history(limit=100, after=after).flatten()
                                 user_messages = [msg for msg in messages if msg.author == member]
 
                                 message_count += len(user_messages)
@@ -128,10 +125,7 @@ class RewardRole(commands.Cog):
                 timeframe = timedelta(days=role_data["timeframe_days"])
                 after = message.created_at - timeframe
 
-                messages = []
-                async for msg in message.channel.history(limit=100, after=after):
-                    messages.append(msg)
-
+                messages = [msg async for msg in message.channel.history(limit=100, after=after)]
                 user_messages = [msg for msg in messages if msg.author == message.author]
 
                 if len(user_messages) >= min_messages:
