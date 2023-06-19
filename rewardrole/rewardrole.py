@@ -98,7 +98,7 @@ class RewardRole(commands.Cog):
             )
             embed.add_field(name=f"Role: {role.name}", value=field_value, inline=False)
 
-    await ctx.send(embed=embed)
+        await ctx.send(embed=embed)
         
     @commands.Cog.listener()
     async def on_message(self, message):
