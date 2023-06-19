@@ -48,7 +48,8 @@ class BestOf(commands.Cog):
     async def test(self, ctx):
         """Test the connection to the Plex server."""
         try:
-            self.plex = PlexServer(await self.config.plex_server_url(), await self.config.token())
+            timeout = aiohttp.ClientTimeout(total=60)  # Increase the timeout to 60 seconds
+            self.plex = PlexServer(await self.config.plex_server_url(), await self.config.token(), timeout=timeout)
             await ctx.send("Connection to Plex server was successful.")
         except Exception as e:
             await ctx.send(f"Failed to connect to Plex server: ```{e}```")
