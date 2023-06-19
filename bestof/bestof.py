@@ -36,16 +36,23 @@ class BestOf(commands.Cog):
     async def set_url(self, ctx, url: str):
         """Sets the Plex server URL."""
         await self.config.plex_server_url.set(url)
-        self.plex = PlexServer(url, await self.config.plex_server_auth_token())
-        await ctx.send("Plex server URL updated.")
+        await ctx.send(f"Plex server URL set to {url}. You can test the connection with the `test` command.")
 
     @bestof.command(name="token")
     async def set_token(self, ctx, token: str):
         """Sets the Plex server authentication token."""
         await self.config.plex_server_auth_token.set(token)
-        self.plex = PlexServer(await self.config.plex_server_url(), token)
-        await ctx.send("Plex server authentication token updated.")
+        await ctx.send(f"Plex token set to `{token}`. You can test the connection with the `test` command.")
         
+    @bestof.command(name="test")
+    async def test(self, ctx):
+        """Test the connection to the Plex server."""
+        try:
+            self.plex = PlexServer(await self.config.plex_server_url(), await self.config.token())
+            await ctx.send("Connection to Plex server was successful.")
+        except Exception as e:
+            await ctx.send(f"Failed to connect to Plex server: ```{e}```")
+
     @bestof.command(name="votingmonth")
     async def set_votingmonth(self, ctx, month: int):
         """Sets the month when the voting is allowed."""
@@ -147,7 +154,6 @@ class BestOf(commands.Cog):
 
         title = title_message.content
         await self.add_vote(ctx, selected_library, title, is_tv_show=is_tv_show)
-
 
     async def add_vote(self, ctx, library_name: str, title: str, is_tv_show: bool = False):
         voting_month = await self.config.voting_month()

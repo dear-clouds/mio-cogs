@@ -1,0 +1,20 @@
+{
+    "authors": [
+        {
+            "name": "Mio.",
+            "discord": "Mio.#9172",
+            "github": "https://github.com/dear-clouds"
+        }
+    ],
+    "description": "A cog to create a Job System where users can make money.",
+    "hidden": false,
+    "install_msg": "Time to build your empire!",
+    "name": "Jobs",
+    "short": "Jobs management",
+    "type": "COG",
+    "end_user_data_statement": "This cog does not store any End User Data.",
+    "requirements": ["discord-ui"],
+    "required_cogs": ["Economy"],
+    "min_bot_version": "3.5.0"
+  }
+  
