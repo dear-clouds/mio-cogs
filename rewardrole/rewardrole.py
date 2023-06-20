@@ -28,11 +28,11 @@ class RewardRole(commands.Cog):
                     for member in guild.members:
                         if role in member.roles and not any(excluded_role in member.roles for excluded_role in excluded_roles):
                             min_messages = role_data["min_messages"]
-                            timeframe = timedelta(days=role_data["timeframe_days"])
+                            timeframe = timedelta(days=role_data["timeframe_days"]).total_seconds()
                             message_count = len(user_activity.get(str(member.id), {}).get('messages', []))
-                            last_message = user_activity.get(str(member.id), {}).get('last_message', member.joined_at)
+                            last_message = user_activity.get(str(member.id), {}).get('last_message', member.joined_at.timestamp())
 
-                            if message_count >= min_messages and last_message >= datetime.now() - timeframe:
+                            if message_count >= min_messages and last_message >= (datetime.now() - timedelta(seconds=timeframe)).timestamp():
                                 if reward_role not in member.roles:
                                     await member.add_roles(reward_role)
                             else:
@@ -122,17 +122,14 @@ class RewardRole(commands.Cog):
                 if re.match(link_only_regex, message.content):
                     return
 
-                # Increase the message count for the user and update the last message timestamp
-                user_activity_data = user_activity.get(str(message.author.id), {"messages": [], "last_message": message.created_at})
+                user_activity_data = user_activity.get(str(message.author.id), {"messages": [], "last_message": message.created_at.timestamp()})
 
-                # Add this message to the user's message cache
                 user_activity_data['messages'].append(message.created_at.timestamp())
 
-                # Remove messages that are older than the required timeframe from the cache
                 timeframe = timedelta(days=role_data["timeframe_days"]).total_seconds()
                 valid_timeframe = (datetime.now() - timedelta(seconds=timeframe)).timestamp()
                 user_activity_data['messages'] = [msg_time for msg_time in user_activity_data['messages'] if msg_time >= valid_timeframe]
 
-                user_activity_data['last_message'] = message.created_at
+                user_activity_data['last_message'] = message.created_at.timestamp()
                 user_activity[str(message.author.id)] = user_activity_data
                 await self.config.guild(message.guild).user_activity.set(user_activity)
