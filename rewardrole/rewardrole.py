@@ -25,20 +25,21 @@ class RewardRole(commands.Cog):
                     role = guild.get_role(int(role_id))
                     reward_role = guild.get_role(role_data["reward_role"])
                     excluded_roles = [guild.get_role(excluded_role_id) for excluded_role_id in role_data["excluded_roles"]]
+                    timeframe = timedelta(days=role_data["timeframe_days"]).total_seconds()
+                    valid_timeframe = (datetime.now() - timedelta(seconds=timeframe)).timestamp()
                     for member in guild.members:
                         if role in member.roles and not any(excluded_role in member.roles for excluded_role in excluded_roles):
-                            min_messages = role_data["min_messages"]
-                            timeframe = timedelta(days=role_data["timeframe_days"]).total_seconds()
-                            message_count = len(user_activity.get(str(member.id), {}).get('messages', []))
-                            last_message = user_activity.get(str(member.id), {}).get('last_message', member.joined_at.timestamp())
-
-                            if message_count >= min_messages and last_message >= (datetime.now() - timedelta(seconds=timeframe)).timestamp():
+                            user_activity_data = user_activity.get(str(member.id), {"messages": [], "last_message": member.joined_at.timestamp()})
+                            # Get the messages that are within the valid timeframe
+                            relevant_messages = [msg_time for msg_time in user_activity_data['messages'] if msg_time >= valid_timeframe]
+                            # If there are enough messages and the last message is within the timeframe, reward the role
+                            if len(relevant_messages) >= role_data["min_messages"]:
                                 if reward_role not in member.roles:
                                     await member.add_roles(reward_role)
                             else:
                                 if reward_role in member.roles:
                                     await member.remove_roles(reward_role)
-
+                                    
             await asyncio.sleep(4 * 60 * 60) # Run the task every 4 hours
 
     @commands.group()
