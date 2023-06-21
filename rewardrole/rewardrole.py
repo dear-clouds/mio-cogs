@@ -20,26 +20,31 @@ class RewardRole(commands.Cog):
         while not self.bot.is_closed():
             for guild in self.bot.guilds:
                 roles = await self.config.guild(guild).roles()
-                user_activity = await self.config.guild(guild).user_activity()
                 for role_id, role_data in roles.items():
                     role = guild.get_role(int(role_id))
                     reward_role = guild.get_role(role_data["reward_role"])
                     excluded_roles = [guild.get_role(excluded_role_id) for excluded_role_id in role_data["excluded_roles"]]
-                    timeframe = timedelta(days=role_data["timeframe_days"]).total_seconds()
-                    valid_timeframe = (datetime.now() - timedelta(seconds=timeframe)).timestamp()
                     for member in guild.members:
                         if role in member.roles and not any(excluded_role in member.roles for excluded_role in excluded_roles):
-                            user_activity_data = user_activity.get(str(member.id), {"messages": [], "last_message": member.joined_at.timestamp()})
-                            # Get the messages that are within the valid timeframe
-                            relevant_messages = [msg_time for msg_time in user_activity_data['messages'] if msg_time >= valid_timeframe]
-                            # If there are enough messages and the last message is within the timeframe, reward the role
-                            if len(relevant_messages) >= role_data["min_messages"]:
+                            min_messages = role_data["min_messages"]
+                            timeframe = timedelta(days=role_data["timeframe_days"])
+                            user_message_count = 0
+                            for channel in guild.text_channels:
+                                if channel.id in role_data["ignored_channels"]:
+                                    continue
+                                try:
+                                    messages = await channel.history(limit=100).flatten()
+                                    for message in messages:
+                                        if message.author == member and message.created_at >= datetime.now() - timeframe:
+                                            user_message_count += 1
+                                except discord.errors.Forbidden:
+                                    continue  # Ignore channels the bot doesn't have access to
+                            if user_message_count >= min_messages:
                                 if reward_role not in member.roles:
                                     await member.add_roles(reward_role)
                             else:
                                 if reward_role in member.roles:
                                     await member.remove_roles(reward_role)
-                                    
             await asyncio.sleep(4 * 60 * 60) # Run the task every 4 hours
 
     @commands.group()
@@ -101,36 +106,36 @@ class RewardRole(commands.Cog):
 
         await ctx.send(embed=embed)
         
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        if message.author.bot:
-            return
+    # @commands.Cog.listener()
+    # async def on_message(self, message):
+    #     if message.author.bot:
+    #         return
 
-        if not message.guild:
-            return
+    #     if not message.guild:
+    #         return
 
-        roles = await self.config.guild(message.guild).roles()
-        user_activity = await self.config.guild(message.guild).user_activity()
+    #     roles = await self.config.guild(message.guild).roles()
+    #     user_activity = await self.config.guild(message.guild).user_activity()
 
-        for role_id, role_data in roles.items():
-            role = message.guild.get_role(int(role_id))
-            excluded_roles = [message.guild.get_role(excluded_role_id) for excluded_role_id in role_data["excluded_roles"]]
-            if role in message.author.roles and not any(excluded_role in message.author.roles for excluded_role in excluded_roles):
-                if message.channel.id in role_data["ignored_channels"]:
-                    return
+    #     for role_id, role_data in roles.items():
+    #         role = message.guild.get_role(int(role_id))
+    #         excluded_roles = [message.guild.get_role(excluded_role_id) for excluded_role_id in role_data["excluded_roles"]]
+    #         if role in message.author.roles and not any(excluded_role in message.author.roles for excluded_role in excluded_roles):
+    #             if message.channel.id in role_data["ignored_channels"]:
+    #                 return
 
-                link_only_regex = r'^\s*<?(?:http|https|ftp)://\S+\b\/*?>?\s*$'
-                if re.match(link_only_regex, message.content):
-                    return
+    #             link_only_regex = r'^\s*<?(?:http|https|ftp)://\S+\b\/*?>?\s*$'
+    #             if re.match(link_only_regex, message.content):
+    #                 return
 
-                user_activity_data = user_activity.get(str(message.author.id), {"messages": [], "last_message": message.created_at.timestamp()})
+    #             user_activity_data = user_activity.get(str(message.author.id), {"messages": [], "last_message": message.created_at.timestamp()})
 
-                user_activity_data['messages'].append(message.created_at.timestamp())
+    #             user_activity_data['messages'].append(message.created_at.timestamp())
 
-                timeframe = timedelta(days=role_data["timeframe_days"]).total_seconds()
-                valid_timeframe = (datetime.now() - timedelta(seconds=timeframe)).timestamp()
-                user_activity_data['messages'] = [msg_time for msg_time in user_activity_data['messages'] if msg_time >= valid_timeframe]
+    #             timeframe = timedelta(days=role_data["timeframe_days"]).total_seconds()
+    #             valid_timeframe = (datetime.now() - timedelta(seconds=timeframe)).timestamp()
+    #             user_activity_data['messages'] = [msg_time for msg_time in user_activity_data['messages'] if msg_time >= valid_timeframe]
 
-                user_activity_data['last_message'] = message.created_at.timestamp()
-                user_activity[str(message.author.id)] = user_activity_data
-                await self.config.guild(message.guild).user_activity.set(user_activity)
+    #             user_activity_data['last_message'] = message.created_at.timestamp()
+    #             user_activity[str(message.author.id)] = user_activity_data
+    #             await self.config.guild(message.guild).user_activity.set(user_activity)
