@@ -39,11 +39,14 @@ class RewardRole(commands.Cog):
                                             user_message_count += 1
                                 except discord.errors.Forbidden:
                                     continue  # Ignore channels the bot doesn't have access to
+                            print(f'{member.name} message count: {user_message_count}')  # print user message count
                             if user_message_count >= min_messages:
                                 if reward_role not in member.roles:
+                                    print(f'Adding reward role to {member.name}')  # print user name when role is added
                                     await member.add_roles(reward_role)
                             else:
                                 if reward_role in member.roles:
+                                    print(f'Removing reward role from {member.name}')  # print user name when role is removed
                                     await member.remove_roles(reward_role)
             await asyncio.sleep(4 * 60 * 60) # Run the task every 4 hours
 
