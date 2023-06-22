@@ -33,8 +33,8 @@ class RewardRole(commands.Cog):
                                 if channel.id in role_data["ignored_channels"]:
                                     continue
                                 try:
-                                    messages = await channel.history(limit=100).flatten()
-                                    for message in messages:
+                                    messages = await channel.history(limit=100)
+                                    async for message in messages:
                                         if message.author == member and message.created_at >= datetime.now() - timeframe:
                                             user_message_count += 1
                                 except discord.errors.Forbidden:
@@ -49,6 +49,7 @@ class RewardRole(commands.Cog):
                                     print(f'Removing reward role from {member.name}')  # print user name when role is removed
                                     await member.remove_roles(reward_role)
             await asyncio.sleep(4 * 60 * 60) # Run the task every 4 hours
+
 
     @commands.group()
     @commands.guild_only()
