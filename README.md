@@ -20,5 +20,5 @@ The purpose of this cog is to assign a role to active users based on specific co
 
 **How to use**
 ```
-[p]rewardrole add <role> <min_messages> <timeframe_days> <reward_role> [excluded_roles] [ignored_channels]
+[p]rewardrole add <role> <min_messages> <timeframe_days> <reward_role> [excluded_roles] [ignored_channels] [ignored_categories]
 ```

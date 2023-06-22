@@ -111,6 +111,7 @@ class RewardRole(commands.Cog):
             reward_role = ctx.guild.get_role(role_data["reward_role"])
             excluded_roles = [ctx.guild.get_role(excluded_role_id) for excluded_role_id in role_data["excluded_roles"]]
             ignored_channels = [ctx.guild.get_channel(channel_id) for channel_id in role_data["ignored_channels"]]
+            ignored_categories = [ctx.guild.get_channel(category_id) for category_id in role_data.get("ignored_categories", [])]
 
             field_value = (
                 f"Min Messages: {role_data['min_messages']}\n"
@@ -118,6 +119,7 @@ class RewardRole(commands.Cog):
                 f"Reward Role: {reward_role.mention}\n"
                 f"Excluded Roles: {', '.join(excluded_role.mention for excluded_role in excluded_roles if excluded_role)}\n"  # Ensure the role exists
                 f"Ignored Channels: {', '.join(channel.mention for channel in ignored_channels if channel)}"  # Ensure the channel exists
+                f"Ignored Categories: {', '.join(category.mention for category in ignored_categories if category)}"  # Ensure the category exists
             )
             embed.add_field(name=f"Role: {role.name}", value=field_value, inline=False)
 
