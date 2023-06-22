@@ -10,7 +10,8 @@ class RewardRole(commands.Cog):
         self.config = Config.get_conf(self, identifier=1995987654321, force_registration=True)
         default_guild = {
             "roles": {},
-            "user_activity": {}
+            "user_activity": {},
+            "last_message_ids": {}
         }
         self.config.register_guild(**default_guild)
         self.bg_task = self.bot.loop.create_task(self.update_roles())
@@ -20,6 +21,7 @@ class RewardRole(commands.Cog):
         while not self.bot.is_closed():
             for guild in self.bot.guilds:
                 roles = await self.config.guild(guild).roles()
+                last_message_ids = await self.config.guild(guild).last_message_ids()
                 for role_id, role_data in roles.items():
                     role = guild.get_role(int(role_id))
                     reward_role = guild.get_role(role_data["reward_role"])
@@ -33,10 +35,18 @@ class RewardRole(commands.Cog):
                                 if channel.id in role_data["ignored_channels"]:
                                     continue
                                 try:
-                                    messages = await channel.history(limit=100)
+                                    last_message_id = last_message_ids.get(str(channel.id))
+                                    if last_message_id:
+                                        messages = channel.history(limit=100, after=discord.Object(id=last_message_id))
+                                    else:
+                                        messages = channel.history(limit=100)
+                                    last_message = None
                                     async for message in messages:
                                         if message.author == member and message.created_at >= datetime.now() - timeframe:
                                             user_message_count += 1
+                                        last_message = message
+                                    if last_message:
+                                        last_message_ids[str(channel.id)] = last_message.id
                                 except discord.errors.Forbidden:
                                     continue  # Ignore channels the bot doesn't have access to
                             print(f'{member.name} message count: {user_message_count}')  # print user message count
@@ -48,8 +58,8 @@ class RewardRole(commands.Cog):
                                 if reward_role in member.roles:
                                     print(f'Removing reward role from {member.name}')  # print user name when role is removed
                                     await member.remove_roles(reward_role)
-            await asyncio.sleep(4 * 60 * 60) # Run the task every 4 hours
-
+                await self.config.guild(guild).last_message_ids.set(last_message_ids)
+            await asyncio.sleep(1 * 60 * 60)  # Run the task every 1 hours
 
     @commands.group()
     @commands.guild_only()
