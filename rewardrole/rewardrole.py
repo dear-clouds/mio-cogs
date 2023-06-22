@@ -32,7 +32,9 @@ class RewardRole(commands.Cog):
                             timeframe = timedelta(days=role_data["timeframe_days"])
                             user_message_count = 0
                             for channel in guild.text_channels:
-                                if channel.id in role_data["ignored_channels"]:
+                                if channel.category and channel.category.id in role_data.get("ignored_categories", []):
+                                    continue
+                                if channel.id in role_data.get("ignored_channels", []):
                                     continue
                                 try:
                                     last_message_id = last_message_ids.get(str(channel.id))
@@ -69,7 +71,7 @@ class RewardRole(commands.Cog):
         pass
 
     @rewardrole.command(name="add")
-    async def add_role_condition(self, ctx, role: discord.Role, min_messages: int, timeframe_days: int, reward_role: discord.Role, excluded_roles: commands.Greedy[discord.Role], ignored_channels: commands.Greedy[discord.TextChannel]=None):
+    async def add_role_condition(self, ctx, role: discord.Role, min_messages: int, timeframe_days: int, reward_role: discord.Role, excluded_roles: commands.Greedy[discord.Role], ignored_channels: commands.Greedy[discord.TextChannel]=None, ignored_categories: commands.Greedy[discord.CategoryChannel]=None):
         """Add a role condition for a specific role."""
 
         async with self.config.guild(ctx.guild).roles() as roles:
@@ -78,7 +80,8 @@ class RewardRole(commands.Cog):
                 "timeframe_days": timeframe_days,
                 "reward_role": reward_role.id,
                 "excluded_roles": [excluded_role.id for excluded_role in excluded_roles],
-                "ignored_channels": [channel.id for channel in ignored_channels]
+                "ignored_channels": [channel.id for channel in ignored_channels],
+                "ignored_categories": [category.id for category in ignored_categories]
             }
 
         await ctx.send(f"Role condition for {role.name} added successfully.")
@@ -120,36 +123,3 @@ class RewardRole(commands.Cog):
 
         await ctx.send(embed=embed)
         
-    # @commands.Cog.listener()
-    # async def on_message(self, message):
-    #     if message.author.bot:
-    #         return
-
-    #     if not message.guild:
-    #         return
-
-    #     roles = await self.config.guild(message.guild).roles()
-    #     user_activity = await self.config.guild(message.guild).user_activity()
-
-    #     for role_id, role_data in roles.items():
-    #         role = message.guild.get_role(int(role_id))
-    #         excluded_roles = [message.guild.get_role(excluded_role_id) for excluded_role_id in role_data["excluded_roles"]]
-    #         if role in message.author.roles and not any(excluded_role in message.author.roles for excluded_role in excluded_roles):
-    #             if message.channel.id in role_data["ignored_channels"]:
-    #                 return
-
-    #             link_only_regex = r'^\s*<?(?:http|https|ftp)://\S+\b\/*?>?\s*$'
-    #             if re.match(link_only_regex, message.content):
-    #                 return
-
-    #             user_activity_data = user_activity.get(str(message.author.id), {"messages": [], "last_message": message.created_at.timestamp()})
-
-    #             user_activity_data['messages'].append(message.created_at.timestamp())
-
-    #             timeframe = timedelta(days=role_data["timeframe_days"]).total_seconds()
-    #             valid_timeframe = (datetime.now() - timedelta(seconds=timeframe)).timestamp()
-    #             user_activity_data['messages'] = [msg_time for msg_time in user_activity_data['messages'] if msg_time >= valid_timeframe]
-
-    #             user_activity_data['last_message'] = message.created_at.timestamp()
-    #             user_activity[str(message.author.id)] = user_activity_data
-    #             await self.config.guild(message.guild).user_activity.set(user_activity)
