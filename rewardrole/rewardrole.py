@@ -118,7 +118,7 @@ class RewardRole(commands.Cog):
                 f"Timeframe (days): {role_data['timeframe_days']}\n"
                 f"Reward Role: {reward_role.mention}\n"
                 f"Excluded Roles: {', '.join(excluded_role.mention for excluded_role in excluded_roles if excluded_role)}\n"  # Ensure the role exists
-                f"Ignored Channels: {', '.join(channel.mention for channel in ignored_channels if channel)}"  # Ensure the channel exists
+                f"Ignored Channels: {', '.join(channel.mention for channel in ignored_channels if channel)}\n"  # Ensure the channel exists
                 f"Ignored Categories: {', '.join(category.mention for category in ignored_categories if category)}"  # Ensure the category exists
             )
             embed.add_field(name=f"Role: {role.name}", value=field_value, inline=False)
