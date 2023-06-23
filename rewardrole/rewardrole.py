@@ -40,11 +40,13 @@ class RewardRole(commands.Cog):
                                 try:
                                     last_message_id = last_message_ids.get(str(channel.id))
                                     if last_message_id:
-                                        messages = await channel.history(limit=100, after=discord.Object(id=last_message_id)).flatten()
+                                        messages = channel.history(limit=100, after=discord.Object(id=last_message_id))
                                     else:
-                                        messages = await channel.history(limit=100).flatten()
+                                        messages = channel.history(limit=100)
+
                                     last_message = None
-                                    for message in messages:
+                                    user_message_count = 0
+                                    async for message in messages:
                                         if message.author == member and message.created_at >= datetime.now(datetime.timezone.utc) - timeframe:
                                             user_message_count += 1
                                         last_message = message
@@ -52,6 +54,7 @@ class RewardRole(commands.Cog):
                                         last_message_ids[str(channel.id)] = last_message.id
                                 except discord.errors.Forbidden:
                                     continue  # Ignore channels the bot doesn't have access to
+
                             await self.log(guild, f'{member.name} message count: {user_message_count}')  # print user message count
                             if user_message_count >= min_messages:
                                 if reward_role not in member.roles:
@@ -62,7 +65,8 @@ class RewardRole(commands.Cog):
                                     await self.log(guild, f'Removing reward role from {member.name}')  # print user name when role is removed
                                     await member.remove_roles(reward_role)
                 await self.config.guild(guild).last_message_ids.set(last_message_ids)
-            await asyncio.sleep(1 * 60 * 60)  # Run the task every 1 hours
+            await asyncio.sleep(20 * 60)  # Sleep for 20 minutes (for testing)
+            # await asyncio.sleep(1 * 60 * 60)  # Run the task every 1 hours
             
     @commands.group()
     @commands.guild_only()
