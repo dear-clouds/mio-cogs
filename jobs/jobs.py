@@ -1,4 +1,5 @@
-from discord import Embed, Colour, ThreadType
+from discord import Embed, Colour
+from discord.threads import ThreadType
 from discord.ext import commands
 from discord_ui import Button, ButtonContext, ButtonStyle
 from discord_ui.cogs import ComponentsCog
