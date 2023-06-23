@@ -64,21 +64,6 @@ class RewardRole(commands.Cog):
                 await self.config.guild(guild).last_message_ids.set(last_message_ids)
             await asyncio.sleep(1 * 60 * 60)  # Run the task every 1 hours
             
-    @commands.command()
-    @commands.has_permissions(administrator=True)
-    async def setlogchannel(self, ctx, channel: discord.TextChannel):
-        """Sets the logging channel for the guild."""
-        await self.config.guild(ctx.guild).log_channel.set(channel.id)
-        await ctx.send(f"Logging channel has been set to: {channel.mention}")
-        
-    async def log(self, guild, message):
-        """Sends a log message to the guild's logging channel."""
-        log_channel_id = await self.config.guild(guild).log_channel()
-        if log_channel_id:
-            log_channel = self.bot.get_channel(log_channel_id)
-            if log_channel:
-                await log_channel.send(message)
-
     @commands.group()
     @commands.guild_only()
     @commands.admin_or_permissions(manage_guild=True)
@@ -140,4 +125,18 @@ class RewardRole(commands.Cog):
             embed.add_field(name=f"Role: {role.name}", value=field_value, inline=False)
 
         await ctx.send(embed=embed)
+        
+    @rewardrole.command(name="logs")
+    async def logs(self, ctx, channel: discord.TextChannel):
+        """Sets the logging channel for the guild."""
+        await self.config.guild(ctx.guild).log_channel.set(channel.id)
+        await ctx.send(f"Logging channel has been set to: {channel.mention}")
+        
+    async def log(self, guild, message):
+        """Sends a log message to the guild's logging channel."""
+        log_channel_id = await self.config.guild(guild).log_channel()
+        if log_channel_id:
+            log_channel = self.bot.get_channel(log_channel_id)
+            if log_channel:
+                await log_channel.send(message)
         
