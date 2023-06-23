@@ -1,11 +1,9 @@
-from discord import Embed, Colour
+from discord import Embed, Colour, Button, ButtonStyle
 from discord.ext import commands
-from discord_ui import Button, ButtonContext, ButtonStyle
-from discord_ui.cogs import ComponentsCog
+from discord.app import OptionType, Option, CommandContext
 
-class Jobs(ComponentsCog):
+class Jobs(commands.Cog):
     def __init__(self, bot):
-        super().__init__(bot)
         self.bot = bot
         self.job_channel_id = None
         self.roles = {}
@@ -22,14 +20,13 @@ class Jobs(ComponentsCog):
         pass
 
     @jobs.command(name='add', cls=commands.Command)
-    async def add_job(self, ctx, title: str, salary: int, *, options: Greedy[commands.Option]):
+    async def add_job(self, ctx: CommandContext, title: Option(OptionType.STRING, "Job title"), salary: Option(OptionType.INTEGER, "Job salary"), 
+                      description: Option(OptionType.STRING, "Job description"), 
+                      image: Option(OptionType.STRING, "Job image url", required=False), 
+                      color: Option(OptionType.STRING, "Embed color", required=False)):
         if not self._can_create(ctx.author):
             await ctx.send("You do not have permission to create jobs")
             return
-
-        description = options.get('description')
-        image_url = options.get('image')
-        color = options.get('color', 'blue')
 
         job_id = ctx.message.id
         self.jobs[job_id] = {
@@ -39,15 +36,15 @@ class Jobs(ComponentsCog):
             "description": description,
             "status": "open",
             "color": color,
-            "image_url": image_url
+            "image_url": image
         }
 
         embed = Embed(title=f"{title} #{job_id}", description=description, colour=getattr(Colour, color)() if hasattr(Colour, color) else Colour.blue())
         embed.add_field(name="Salary", value=str(salary))
         embed.add_field(name="Taken by", value="Not yet taken")
 
-        if image_url:
-            embed.set_image(url=image_url)
+        if image:
+            embed.set_image(url=image)
 
         job_channel = self.bot.get_channel(self.job_channel_id)
         job_message = await job_channel.send(embed=embed)
@@ -56,13 +53,17 @@ class Jobs(ComponentsCog):
         await job_message.add_reaction(self.briefcase_emoji)
         self.jobs[job_id]["message_id"] = job_message.id
 
-        job_done_button = Button(style=ButtonStyle.success, label="Job Done", custom_id=f"job_done_{job_id}")
-        await job_message.add_components(job_done_button)
+        job_done_button = Button(style=ButtonStyle.SUCCESS, label="Job Done", custom_id=f"job_done_{job_id}")
+        await job_message.edit(components=[job_done_button])
 
         await ctx.send(f"Job created with ID {job_id}")
 
-    @button_click(custom_id_starts_with="job_done_")
-    async def job_done_button_click(self, ctx: ButtonContext):
+    @commands.Cog.listener()
+    async def on_component(self, ctx):
+        if ctx.custom_id.startswith("job_done_"):
+            await self.job_done_button_click(ctx)
+
+    async def job_done_button_click(self, ctx):
         job_id = int(ctx.custom_id.split("_")[-1])
         job = self.jobs.get(job_id)
         if not job or job["status"] != "in_progress" or ctx.author.id != job["creator"] and not ctx.author.guild_permissions.administrator:
