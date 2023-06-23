@@ -1,7 +1,6 @@
 import discord
-import re
 from redbot.core import commands, Config
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 import asyncio
 
 class RewardRole(commands.Cog):
@@ -40,14 +39,13 @@ class RewardRole(commands.Cog):
                                 try:
                                     last_message_id = last_message_ids.get(str(channel.id))
                                     if last_message_id:
-                                        messages = channel.history(limit=100, after=discord.Object(id=last_message_id))
+                                        messages = await channel.history(limit=100, after=discord.Object(id=last_message_id)).flatten()
                                     else:
-                                        messages = channel.history(limit=100)
+                                        messages = await channel.history(limit=100).flatten()
 
                                     last_message = None
-                                    user_message_count = 0
-                                    async for message in messages:
-                                        if message.author == member and message.created_at >= datetime.now(datetime.timezone.utc) - timeframe:
+                                    for message in messages:
+                                        if message.author == member and message.created_at >= datetime.now(timezone.utc) - timeframe:
                                             user_message_count += 1
                                         last_message = message
                                     if last_message:
