@@ -65,8 +65,8 @@ class RewardRole(commands.Cog):
                                     await self.log(guild, f'Removing reward role from {member.name}')  # print user name when role is removed
                                     await member.remove_roles(reward_role)
                 await self.config.guild(guild).last_message_ids.set(last_message_ids)
-            await asyncio.sleep(20 * 60)  # Sleep for 20 minutes (for testing)
-            # await asyncio.sleep(1 * 60 * 60)  # Run the task every 1 hours
+            # await asyncio.sleep(20 * 60)  # Sleep for 20 minutes (for testing)
+            await asyncio.sleep(1 * 60 * 60)  # Run the task every 1 hours
             
     @commands.group()
     @commands.guild_only()
@@ -110,7 +110,7 @@ class RewardRole(commands.Cog):
             await ctx.send("No role conditions have been configured.")
             return
 
-        embed = discord.Embed(color=discord.Color.blue())
+        embed = discord.Embed()
         for role_id, role_data in roles_data.items():
             role = ctx.guild.get_role(int(role_id))
             reward_role = ctx.guild.get_role(role_data["reward_role"])
