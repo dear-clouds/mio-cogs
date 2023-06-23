@@ -11,7 +11,8 @@ class RewardRole(commands.Cog):
         default_guild = {
             "roles": {},
             "user_activity": {},
-            "last_message_ids": {}
+            "last_message_ids": {},
+            "log_channel": None
         }
         self.config.register_guild(**default_guild)
         self.bg_task = self.bot.loop.create_task(self.update_roles())
@@ -51,17 +52,32 @@ class RewardRole(commands.Cog):
                                         last_message_ids[str(channel.id)] = last_message.id
                                 except discord.errors.Forbidden:
                                     continue  # Ignore channels the bot doesn't have access to
-                            print(f'{member.name} message count: {user_message_count}')  # print user message count
+                            await self.log(guild, f'{member.name} message count: {user_message_count}')  # print user message count
                             if user_message_count >= min_messages:
                                 if reward_role not in member.roles:
-                                    print(f'Adding reward role to {member.name}')  # print user name when role is added
+                                    await self.log(guild, f'Adding reward role from {member.name}')  # print user name when role is added
                                     await member.add_roles(reward_role)
                             else:
                                 if reward_role in member.roles:
-                                    print(f'Removing reward role from {member.name}')  # print user name when role is removed
+                                    await self.log(guild, f'Removing reward role from {member.name}')  # print user name when role is removed
                                     await member.remove_roles(reward_role)
                 await self.config.guild(guild).last_message_ids.set(last_message_ids)
             await asyncio.sleep(1 * 60 * 60)  # Run the task every 1 hours
+            
+    @commands.command()
+    @commands.has_permissions(administrator=True)
+    async def setlogchannel(self, ctx, channel: discord.TextChannel):
+        """Sets the logging channel for the guild."""
+        await self.config.guild(ctx.guild).log_channel.set(channel.id)
+        await ctx.send(f"Logging channel has been set to: {channel.mention}")
+        
+    async def log(self, guild, message):
+        """Sends a log message to the guild's logging channel."""
+        log_channel_id = await self.config.guild(guild).log_channel()
+        if log_channel_id:
+            log_channel = self.bot.get_channel(log_channel_id)
+            if log_channel:
+                await log_channel.send(message)
 
     @commands.group()
     @commands.guild_only()
