@@ -20,6 +20,7 @@ class RewardRole(commands.Cog):
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
             for guild in self.bot.guilds:
+                await self.log(guild, f'Checking guild {guild.name}')  # Add logging here
                 roles = await self.config.guild(guild).roles()
                 last_message_ids = await self.config.guild(guild).last_message_ids()
                 for role_id, role_data in roles.items():
