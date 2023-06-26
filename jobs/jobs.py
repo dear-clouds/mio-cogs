@@ -219,13 +219,13 @@ class Jobs(commands.Cog):
     async def _can_create(self, member):
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
-            create_role_id = next((role_id for role_id, role_data in roles.items() if isinstance(role_data, dict) and role_data.get("create") in role_ids), None)
+            create_role_id = next((role_id for role_id, role_data in roles.items() if role_id in role_ids and role_data.get("create")), None)
         return create_role_id is not None
 
     async def _can_take(self, member):
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
-            take_role_id = next((role_id for role_id, role_data in roles.items() if isinstance(role_data, dict) and role_data.get("take") in role_ids), None)
+            take_role_id = next((role_id for role_id, role_data in roles.items() if role_id in role_ids and role_data.get("take")), None)
         return take_role_id is not None
 
     async def cog_added(self):
