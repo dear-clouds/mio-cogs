@@ -90,10 +90,12 @@ class Jobs(commands.Cog):
                 "image_url": image
             }
 
-        embed = Embed(
+        default_color = getattr(discord.Colour, color, discord.Embed.Empty)
+
+        embed = discord.Embed(
             title=f"{title} #{job_id}",
             description=description,
-            colour=getattr(Colour, color)() if hasattr(Colour, color) else Colour.blue()
+            colour=default_color
         )
         embed.add_field(name="Salary", value=str(salary))
         embed.add_field(name="Taken by", value="Not yet taken")
@@ -112,7 +114,7 @@ class Jobs(commands.Cog):
             await job_message.add_reaction(await self.config.guild(ctx.guild).emoji())
             job["message_id"] = job_message.id
 
-        job_done_button = Button(style=ButtonStyle.SUCCESS, label="Job Done", custom_id=f"job_done_{job_id}")
+        job_done_button = discord.ui.Button(style=discord.ButtonStyle.SUCCESS, label="Job Done", custom_id=f"job_done_{job_id}")
         await job_message.edit(components=[job_done_button])
 
         await ctx.send(f"Job created with ID {job_id}", ephemeral=True)
