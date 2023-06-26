@@ -21,7 +21,7 @@ class Jobs(commands.Cog):
         pass
 
     @app_commands.command(name='add')
-    async def add_job_slash(self, ctx: app_commands.Context, title: str, salary: int, description: str, 
+    async def add_job_slash(self, ctx: commands.Context, title: str, salary: int, description: str, 
                         image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
         await self.add_job(ctx.interaction, title, salary, description, image, color)
