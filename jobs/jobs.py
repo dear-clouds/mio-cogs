@@ -93,7 +93,7 @@ class Jobs(commands.Cog):
         default_color = getattr(discord.Colour, color, await ctx.embed_colour()) if color is not None else await ctx.embed_colour()
 
         embed = discord.Embed(
-            title=f"{title} #{job_id}",
+            title=f"{title}",
             description=description,
             colour=default_color
         )
@@ -106,7 +106,7 @@ class Jobs(commands.Cog):
         job_channel_id = await self.config.guild(ctx.guild).job_channel_id()
         job_channel = self.bot.get_channel(job_channel_id)
         job_message = await job_channel.send(embed=embed)
-        thread = await job_message.create_thread(name=f"{title} #{job_id} Discussion")
+        thread = await job_message.create_thread(name=f"{title} Discussion")
 
         async with self.config.guild(ctx.guild).jobs() as jobs:
             job = jobs[str(job_id)]
@@ -148,20 +148,20 @@ class Jobs(commands.Cog):
                 embed = job_message.embeds[0]
                 embed.color = Colour.green()
                 await job_message.edit(embed=embed)
-                job_done_button = Button(style=ButtonStyle.SUCCESS, label="Job Done", custom_id=f"job_done_{job_id}")
+                job_done_button = Button(style=ButtonStyle.green, label="Job Done", custom_id=f"job_done_{job_id}")
                 await job_message.remove_components(job_done_button)
 
             await ctx.send("Job has been marked as complete.")
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):
-        emoji = await self.config.guild(self.bot.get_guild(payload.guild_id)).emoji()
+        emoji = await self.config.guild(self.bot.get_guild(payload.guild_id or payload.guild_id)).emoji()
         if payload.emoji.name == emoji:
             await self._handle_take_job_reaction(payload)
 
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, payload):
-        emoji = await self.config.guild(self.bot.get_guild(payload.guild_id)).emoji()
+        emoji = await self.config.guild(self.bot.get_guild(payload.guild_id or payload.guild_id)).emoji()
         if payload.emoji.name == emoji:
             await self._handle_untake_job_reaction(payload)
 
@@ -170,7 +170,7 @@ class Jobs(commands.Cog):
         if payload.channel_id != job_channel_id:
             return
 
-        async with self.config.guild(payload.guild).jobs() as jobs:
+        async with self.config.guild(payload.guild_id).jobs() as jobs:
             job = jobs.get(str(payload.message_id))
             if not job or job["status"] != "open":
                 return
@@ -194,7 +194,7 @@ class Jobs(commands.Cog):
         if payload.channel_id != job_channel_id:
             return
 
-        async with self.config.guild(payload.guild).jobs() as jobs:
+        async with self.config.guild(payload.guild_id).jobs() as jobs:
             job = jobs.get(str(payload.message_id))
             if not job or job["status"] != "in_progress" or payload.user_id != job["taker"]:
                 return
