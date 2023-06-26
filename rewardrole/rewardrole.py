@@ -9,7 +9,6 @@ class RewardRole(commands.Cog):
         self.config = Config.get_conf(self, identifier=1995987654321, force_registration=True)
         default_guild = {
             "roles": {},
-            "user_activity": {},
             "last_message_ids": {},
             "log_channel": None
         }
@@ -36,7 +35,7 @@ class RewardRole(commands.Cog):
                                 min_messages = role_data["min_messages"]
                                 timeframe = timedelta(days=role_data["timeframe_days"])
                                 user_message_count = 0
-                                for channel in guild.text_channels:
+                                for channel in guild.channels:
                                     # Check if member has the permissions to send messages in the channel
                                     permissions = channel.permissions_for(member)
                                     if not permissions.send_messages:
@@ -44,22 +43,17 @@ class RewardRole(commands.Cog):
                                     overwrites = channel.overwrites_for(role)
                                     if overwrites.send_messages is False:
                                         continue
-                                    if channel.category and channel.category.id in role_data.get("ignored_categories", []):
+                                    if isinstance(channel, discord.CategoryChannel) and channel.id in role_data.get("ignored_categories", []):
                                         continue
-                                    if channel.id in role_data.get("ignored_channels", []):
-                                        continue
-                                    try:
+                                    if isinstance(channel, discord.TextChannel) or isinstance(channel, discord.Thread):
+                                        if channel.id in role_data.get("ignored_channels", []):
+                                            continue
                                         await self.log(guild, f'Checking messages in channel {channel.name}')  # Debug Log
-                                        user_message_count += await self.process_channel(channel, member, timeframe, role_data, last_message_ids, guild)
-                                        # If the channel is a Forum Channel, check its threads too
-                                        if isinstance(channel, discord.ForumChannel):
-                                            for thread in channel.threads:
-                                                await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
-                                                user_message_count += await self.process_channel(thread, member, timeframe, role_data, last_message_ids, guild)
-                                    except discord.errors.Forbidden:
-                                        await self.log(guild, f'Could not access channel {channel.name}')  # Debug Log
-                                        continue  # Ignore channels the bot doesn't have access to
-
+                                        user_message_count += await self.process_channel_or_thread(channel, member, timeframe, last_message_ids, guild)
+                                    if isinstance(channel, discord.ForumChannel):
+                                        for thread in await channel.fetch_active_threads():
+                                            await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
+                                            user_message_count += await self.process_channel_or_thread(thread, member, timeframe, last_message_ids, guild)
                                 await self.log(guild, f'Finished processing member {member.name}. Message count: {user_message_count}')  # Debug Log
                                 if user_message_count >= min_messages:
                                     if reward_role not in member.roles:
@@ -72,57 +66,31 @@ class RewardRole(commands.Cog):
                         except Exception as e:
                             await self.log(guild, f'An error occurred while processing member {member.name}: {str(e)}')  # Error Log
                             continue  # Continue with the next member even if an error occurred
-                    await self.config.guild(guild).last_message_ids.set(last_message_ids)
+                await self.config.guild(guild).last_message_ids.set(last_message_ids)
             await asyncio.sleep(4 * 60 * 60)  # Run the task every 4 hours
+
+    async def process_channel_or_thread(self, channel_or_thread, member, timeframe, last_message_ids, guild):
+        message_count = 0
+        now = datetime.now(timezone.utc)
+        earliest_time = now - timeframe
+        last_message_id = last_message_ids.get(str(channel_or_thread.id))
+        if last_message_id:
+            after = discord.Object(id=int(last_message_id))
+        else:
+            after = earliest_time
+        async for message in channel_or_thread.history(limit=None, after=after):
+            if message.author == member and message.created_at > earliest_time:
+                message_count += 1
+                if str(channel_or_thread.id) not in last_message_ids or message.id > int(last_message_ids[str(channel_or_thread.id)]):
+                    last_message_ids[str(channel_or_thread.id)] = str(message.id)
+        return message_count
             
-    async def process_channel(self, channel, member, timeframe, role_data, last_message_ids, guild):
-        last_message_id = last_message_ids.get(str(channel.id))
-        if last_message_id:
-            messages = channel.history(after=discord.Object(id=last_message_id))
-        else:
-            messages = channel.history()
-
-        last_message = None
-        user_message_count = 0
-        async for message in messages:
-            if message.created_at < datetime.now(tz=timezone.utc) - timeframe:
-                break  # Stop processing messages older than the timeframe
-            if message.author == member:
-                user_message_count += 1
-            last_message = message
-        if last_message:
-            last_message_ids[str(channel.id)] = last_message.id
-        await self.log(guild, f'Finished checking messages in channel {channel.name}')  # Debug Log
-
-        # Process messages in threads of the forum channel
-        if isinstance(channel, discord.ForumChannel):
-            threads = await channel.fetch_active_threads()
-            for thread in threads:
-                user_message_count += await self.process_thread(thread, member, timeframe, role_data, last_message_ids, guild)
-
-        return user_message_count
-
-    async def process_thread(self, thread, member, timeframe, role_data, last_message_ids, guild):
-        last_message_id = last_message_ids.get(str(thread.id))
-        if last_message_id:
-            messages = thread.history(after=discord.Object(id=last_message_id))
-        else:
-            messages = thread.history()
-
-        last_message = None
-        user_message_count = 0
-        async for message in messages:
-            if message.created_at < datetime.now(tz=timezone.utc) - timeframe:
-                break  # Stop processing messages older than the timeframe
-            if message.author == member:
-                user_message_count += 1
-            last_message = message
-        if last_message:
-            last_message_ids[str(thread.id)] = last_message.id
-        await self.log(guild, f'Finished checking messages in thread {thread.name}')  # Debug Log
-
-        return user_message_count
-
+    async def log(self, guild, message):
+        log_channel_id = await self.config.guild(guild).log_channel()
+        if log_channel_id:
+            log_channel = guild.get_channel(log_channel_id)
+            if log_channel:
+                await log_channel.send(message)
             
     @commands.group()
     @commands.guild_only()
@@ -191,12 +159,4 @@ class RewardRole(commands.Cog):
         """Sets the logging channel for the guild."""
         await self.config.guild(ctx.guild).log_channel.set(channel.id)
         await ctx.send(f"Logging channel has been set to: {channel.mention}")
-        
-    async def log(self, guild, message):
-        """Sends a log message to the guild's logging channel."""
-        log_channel_id = await self.config.guild(guild).log_channel()
-        if log_channel_id:
-            log_channel = self.bot.get_channel(log_channel_id)
-            if log_channel:
-                await log_channel.send(message)
-        
+    

@@ -2,7 +2,7 @@
 
 Random cogs I've made for myself, this might not be useful to you but if it is, awesome.
 
-I'm still working on some of those cogs, so please only install those listed below. You can star this repo in the meantime and I will update once it's ready for use.
+I'm still working on those cogs, so please **DO NOT INSTALL THEM** yet. You can star this repo in the meantime and I will update once it's ready for use.
 
 # Installation
 
