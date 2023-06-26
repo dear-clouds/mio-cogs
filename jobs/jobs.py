@@ -63,7 +63,7 @@ class Jobs(commands.Cog):
         """Create a new job posting"""
         await self.add_job(ctx, title, salary, description, image, color)
 
-    async def add_job(self, ctx: commands.Context, title: str, salary: int, description: str, 
+    async def add_job(self, ctx: commands.Context, title: str, salary: int, description: str,
                     image: Optional[str] = None, color: Optional[str] = None):
         """Helper function to create a job"""
         if not await self._can_create(ctx.author):
@@ -77,7 +77,7 @@ class Jobs(commands.Cog):
 
         await bank.withdraw_credits(ctx.author, salary)
 
-        job_id = ctx.interaction.id
+        job_id = ctx.message.id
 
         async with self.config.guild(ctx.guild).jobs() as jobs:
             jobs[str(job_id)] = {
@@ -90,7 +90,11 @@ class Jobs(commands.Cog):
                 "image_url": image
             }
 
-        embed = Embed(title=f"{title} #{job_id}", description=description, colour=getattr(Colour, color)() if hasattr(Colour, color) else Colour.blue())
+        embed = Embed(
+            title=f"{title} #{job_id}",
+            description=description,
+            colour=getattr(Colour, color)() if hasattr(Colour, color) else Colour.blue()
+        )
         embed.add_field(name="Salary", value=str(salary))
         embed.add_field(name="Taken by", value="Not yet taken")
 
