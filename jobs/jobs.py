@@ -81,7 +81,7 @@ class Jobs(commands.Cog):
 
         await economy.bank.withdraw_credits(ctx.author, salary)
 
-        job_id = ctx.interaction.id
+        job_id = ctx.id
 
         async with self.config.guild(ctx.guild).jobs() as jobs:
             jobs[str(job_id)] = {
