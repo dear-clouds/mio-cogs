@@ -81,7 +81,7 @@ class Jobs(commands.Cog):
 
         await economy.bank.withdraw_credits(ctx.author, salary)
 
-        job_id = ctx.id
+        job_id = ctx.interaction.id
 
         async with self.config.guild(ctx.guild).jobs() as jobs:
             jobs[str(job_id)] = {
@@ -219,14 +219,14 @@ class Jobs(commands.Cog):
     async def _can_create(self, member):
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
-            create_role_id = roles.get(str(member.id), {}).get("create")
-        return create_role_id in role_ids
+            create_role_id = next((role_id for role_id, role_data in roles.items() if role_data.get("create") in role_ids), None)
+        return create_role_id is not None
 
     async def _can_take(self, member):
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
-            take_role_id = roles.get(str(member.id), {}).get("take")
-        return take_role_id in role_ids
+            take_role_id = next((role_id for role_id, role_data in roles.items() if role_data.get("take") in role_ids), None)
+        return take_role_id is not None
 
     async def cog_added(self):
         await self.bot.load_application_commands()
