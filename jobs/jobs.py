@@ -1,7 +1,7 @@
+import discord
+from redbot.core import commands, app_commands, Config
 from discord import Embed, Colour, Button, ButtonStyle
-from discord.ext import commands
-import interactions
-from interactions import OptionType, Option, CommandContext
+from typing import Optional
 
 class Jobs(commands.Cog):
     def __init__(self, bot):
@@ -20,16 +20,15 @@ class Jobs(commands.Cog):
         """Manage jobs"""
         pass
 
-    @jobs.command(name='add', cls=commands.Command)
-    async def add_job(self, ctx: CommandContext, title: Option(OptionType.STRING, "Job title"), salary: Option(OptionType.INTEGER, "Job salary"), 
-                      description: Option(OptionType.STRING, "Job description"), 
-                      image: Option(OptionType.STRING, "Job image url", required=False), 
-                      color: Option(OptionType.STRING, "Embed color", required=False)):
+    @app_commands.command(name='add')
+    async def add_job(self, ctx: app_commands.Context, title: str, salary: int, description: str, 
+                      image: Optional[str] = None, color: Optional[str] = None):
+        """Create a new job posting"""
         if not self._can_create(ctx.author):
-            await ctx.send("You do not have permission to create jobs")
+            await ctx.send("You do not have permission to create jobs", ephemeral=True)
             return
 
-        job_id = ctx.message.id
+        job_id = ctx.interaction.id
         self.jobs[job_id] = {
             "creator": ctx.author.id,
             "taker": None,
@@ -57,7 +56,7 @@ class Jobs(commands.Cog):
         job_done_button = Button(style=ButtonStyle.SUCCESS, label="Job Done", custom_id=f"job_done_{job_id}")
         await job_message.edit(components=[job_done_button])
 
-        await ctx.send(f"Job created with ID {job_id}")
+        await ctx.send(f"Job created with ID {job_id}", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_component(self, ctx):
@@ -158,6 +157,11 @@ class Jobs(commands.Cog):
         role_ids = [role.id for role in member.roles]
         take_role_id = self.roles.get(member.guild.id, {}).get("take")
         return take_role_id in role_ids
+    
+    async def cog_added(self):
+        await self.bot.load_application_commands()
 
 def setup(bot):
     bot.add_cog(Jobs(bot))
+
+
