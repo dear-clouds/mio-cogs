@@ -2,6 +2,7 @@ import discord
 from redbot.core import commands, Config
 from datetime import timedelta, datetime, timezone
 import asyncio
+import re
 
 class RewardRole(commands.Cog):
     def __init__(self, bot):
@@ -18,9 +19,9 @@ class RewardRole(commands.Cog):
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
             for guild in self.bot.guilds:
-                await self.log(guild, f'Checking guild {guild.name}')  # Debug Log
+                # await self.log(guild, f'Checking guild {guild.name}')  # Debug Log
                 roles = await self.config.guild(guild).roles()
-                await self.log(guild, f'Found {len(roles)} role(s) in the configuration')  # Debug Log
+                # await self.log(guild, f'Found {len(roles)} role(s) in the configuration')  # Debug Log
                 for role_id, role_data in roles.items():
                     role = guild.get_role(int(role_id))
                     reward_role = guild.get_role(role_data["reward_role"])
@@ -29,7 +30,7 @@ class RewardRole(commands.Cog):
                     for member in guild.members:
                         try:
                             if role in member.roles and not any(excluded_role in member.roles for excluded_role in excluded_roles):
-                                await self.log(guild, f'Processing member {member.name}')  # Debug Log
+                                # await self.log(guild, f'Processing member {member.name}')  # Debug Log
                                 min_messages = role_data["min_messages"]
                                 timeframe = timedelta(days=role_data["timeframe_days"])
                                 user_message_count = 0
@@ -46,13 +47,13 @@ class RewardRole(commands.Cog):
                                     if isinstance(channel, discord.TextChannel) or isinstance(channel, discord.Thread):
                                         if channel.id in role_data.get("ignored_channels", []):
                                             continue
-                                        await self.log(guild, f'Checking messages in channel {channel.name}')  # Debug Log
+                                        # await self.log(guild, f'Checking messages in channel {channel.name}')  # Debug Log
                                         user_message_count += await self.process_channel_or_thread(channel, member, timeframe, guild)
                                     if isinstance(channel, discord.ForumChannel):
                                         if channel.id in role_data.get("ignored_channels", []):
                                             continue
                                         for thread in channel.threads:
-                                            await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
+                                            # await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
                                             user_message_count += await self.process_channel_or_thread(thread, member, timeframe, guild)
 
                                 await self.log(guild, f'Finished processing member {member.name}. Message count: {user_message_count}')  # Debug Log
@@ -75,7 +76,11 @@ class RewardRole(commands.Cog):
         earliest_time = now - timeframe
         async for message in channel_or_thread.history(limit=None, after=earliest_time):
             if message.author == member:
-                message_count += 1
+                # Checks if the message is just a URL (or multiple URLs)
+                urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content)
+                non_link_content = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', message.content).strip()
+                if not urls or non_link_content:
+                    message_count += 1
         return message_count
             
     async def log(self, guild, message):
@@ -140,6 +145,6 @@ class RewardRole(commands.Cog):
 
     @rewardrole.command(name="setlog")
     async def set_log_channel(self, ctx, channel: discord.TextChannel):
-        """Set the log channel."""
+        """Only if you want to log messages count by user."""
         await self.config.guild(ctx.guild).log_channel.set(channel.id)
         await ctx.send(f"Log channel set to {channel.mention}.")
