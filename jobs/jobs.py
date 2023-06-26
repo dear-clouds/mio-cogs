@@ -21,16 +21,30 @@ class Jobs(commands.Cog):
         pass
 
     @app_commands.command(name='add')
-    async def add_job(self, ctx: commands.Context, title: str, salary: int, description: str, 
-                      image: Optional[str] = None, color: Optional[str] = None):
+    async def add_job_slash(self, ctx: app_commands.Context, title: str, salary: int, description: str, 
+                        image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
-        if not self._can_create(ctx.author):
-            await ctx.send("You do not have permission to create jobs", ephemeral=True)
+        await self.add_job(ctx.interaction, title, salary, description, image, color)
+
+
+    @jobs.command(name='add')
+    async def add_job_message(self, ctx: commands.Context, title: str, salary: int, description: str, 
+                            image: Optional[str] = None, color: Optional[str] = None):
+        """Create a new job posting"""
+        await self.add_job(ctx, title, salary, description, image, color)
+
+
+    async def add_job(self, interaction: discord.Interaction, title: str, salary: int, description: str, 
+                    image: Optional[str] = None, color: Optional[str] = None):
+        """Helper function to create a job"""
+
+        if not self._can_create(interaction.user):
+            await interaction.response.send_message("You do not have permission to create jobs", ephemeral=True)
             return
 
-        job_id = ctx.interaction.id
+        job_id = interaction.id
         self.jobs[job_id] = {
-            "creator": ctx.author.id,
+            "creator": interaction.user.id,
             "taker": None,
             "salary": salary,
             "description": description,
@@ -56,7 +70,7 @@ class Jobs(commands.Cog):
         job_done_button = Button(style=ButtonStyle.SUCCESS, label="Job Done", custom_id=f"job_done_{job_id}")
         await job_message.edit(components=[job_done_button])
 
-        await ctx.send(f"Job created with ID {job_id}", ephemeral=True)
+        await interaction.response.send_message(f"Job created with ID {job_id}", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_component(self, ctx):
