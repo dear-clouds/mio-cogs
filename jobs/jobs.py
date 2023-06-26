@@ -19,6 +19,20 @@ class Jobs(commands.Cog):
     async def jobs(self, ctx):
         """Manage jobs"""
         pass
+    
+    @jobs.command(name='posters')
+    @commands.has_guild_permissions(administrator=True)
+    async def set_create_role(self, ctx, role: discord.Role):
+        """Set the role allowed to create jobs"""
+        self.roles.setdefault(ctx.guild.id, {})[role.id] = "create"
+        await ctx.send(f"Role {role.name} can now create jobs.")
+
+    @jobs.command(name='seekers')
+    @commands.has_guild_permissions(administrator=True)
+    async def set_take_role(self, ctx, role: discord.Role):
+        """Set the role allowed to take jobs"""
+        self.roles.setdefault(ctx.guild.id, {})[role.id] = "take"
+        await ctx.send(f"Role {role.name} can now take jobs.")
 
     @app_commands.command(name='job')
     async def add_job_slash(self, ctx: commands.Context, title: str, salary: int, description: str, 
