@@ -219,13 +219,13 @@ class Jobs(commands.Cog):
     async def _can_create(self, member):
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
-            create_role_id = roles.get(str(member_role.id), {}).get("create")
+            create_role_id = roles.get(str(member.id), {}).get("create")
         return create_role_id in role_ids
 
     async def _can_take(self, member):
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
-            take_role_id = roles.get(str(member_role.id), {}).get("take")
+            take_role_id = roles.get(str(member.id), {}).get("take")
         return take_role_id in role_ids
 
     async def cog_added(self):
