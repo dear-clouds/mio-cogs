@@ -57,10 +57,11 @@ class Jobs(commands.Cog):
         """Create a new job posting"""
         await self.add_job(ctx, title, salary, description, image, color)
 
+    @jobs.command(name='add')
     async def add_job_message(self, ctx: commands.Context, title: str, salary: int, description: str, 
-                            image: Optional[str] = None, color: Optional[str] = None):
-        """Create a new job posting"""
-        await self.add_job(ctx, title, salary, description, image, color)
+                          image: Optional[str] = None, color: Optional[str] = None):
+    """Create a new job posting"""
+    await self.add_job(ctx, title, salary, description, image, color)
 
     async def add_job(self, ctx: commands.Context, title: str, salary: int, description: str, 
                     image: Optional[str] = None, color: Optional[str] = None):
