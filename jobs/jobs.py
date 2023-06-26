@@ -9,7 +9,7 @@ class Jobs(commands.Cog):
         self.job_channel_id = None
         self.roles = {}
         self.jobs = {}
-        self.briefcase_emoji = "\U0001F4BC" 
+        self.emoji = "\U0001F4BC"  # default emoji
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -18,7 +18,25 @@ class Jobs(commands.Cog):
     @commands.group(invoke_without_command=True)
     async def jobs(self, ctx):
         """Manage jobs"""
-        pass
+        cmd = self.bot.get_command('jobs')
+        subcommands = ""
+        for sub in cmd.commands:
+            subcommands += f"{sub.name} - {sub.help}\n"
+        await ctx.send(subcommands)
+
+    @jobs.command(name='channel')
+    @commands.has_guild_permissions(administrator=True)
+    async def set_channel(self, ctx, channel: discord.TextChannel):
+        """Set the channel for jobs"""
+        self.job_channel_id = channel.id
+        await ctx.send(f"Job channel has been set to {channel.mention}")
+
+    @jobs.command(name='emoji')
+    @commands.has_guild_permissions(administrator=True)
+    async def set_emoji(self, ctx, emoji: str):
+        """Set the emoji for job reactions"""
+        self.emoji = emoji
+        await ctx.send(f"Emoji has been set to {emoji}")
     
     @jobs.command(name='posters')
     @commands.has_guild_permissions(administrator=True)
@@ -77,7 +95,7 @@ class Jobs(commands.Cog):
         job_message = await job_channel.send(embed=embed)
         thread = await job_message.create_thread(name=f"{title} #{job_id} Discussion")
         self.jobs[job_id]["thread_id"] = thread.id
-        await job_message.add_reaction(self.briefcase_emoji)
+        await job_message.add_reaction(self.emoji)
         self.jobs[job_id]["message_id"] = job_message.id
 
         job_done_button = Button(style=ButtonStyle.SUCCESS, label="Job Done", custom_id=f"job_done_{job_id}")
@@ -124,12 +142,12 @@ class Jobs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):
-        if payload.emoji.name == self.briefcase_emoji:
+        if payload.emoji.name == self.emoji:
             await self._handle_take_job_reaction(payload)
 
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, payload):
-        if payload.emoji.name == self.briefcase_emoji:
+        if payload.emoji.name == self.emoji:
             await self._handle_untake_job_reaction(payload)
 
     async def _handle_take_job_reaction(self, payload):
