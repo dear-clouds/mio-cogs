@@ -20,17 +20,18 @@ class RewardRole(commands.Cog):
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
             for guild in self.bot.guilds:
-                await self.log(guild, f'Checking guild {guild.name}')
+                await self.log(guild, f'Checking guild {guild.name}')  # Debug Log
                 roles = await self.config.guild(guild).roles()
+                await self.log(guild, f'Found {len(roles)} role(s) in the configuration')  # Debug Log
                 last_message_ids = await self.config.guild(guild).last_message_ids()
                 for role_id, role_data in roles.items():
                     role = guild.get_role(int(role_id))
                     reward_role = guild.get_role(role_data["reward_role"])
                     excluded_roles = [guild.get_role(excluded_role_id) for excluded_role_id in role_data["excluded_roles"]]
-                    await self.log(guild, f'Processing role {role.name}')
+                    await self.log(guild, f'Processing role {role.name}')  # Debug Log
                     for member in guild.members:
                         if role in member.roles and not any(excluded_role in member.roles for excluded_role in excluded_roles):
-                            await self.log(guild, f'Processing member {member.name}')
+                            await self.log(guild, f'Processing member {member.name}')  # Debug Log
                             min_messages = role_data["min_messages"]
                             timeframe = timedelta(days=role_data["timeframe_days"])
                             user_message_count = 0
@@ -40,33 +41,35 @@ class RewardRole(commands.Cog):
                                 if channel.id in role_data.get("ignored_channels", []):
                                     continue
                                 try:
+                                    await self.log(guild, f'Checking messages in channel {channel.name}')  # Debug Log
                                     last_message_id = last_message_ids.get(str(channel.id))
                                     if last_message_id:
-                                        messages = await channel.history(limit=100, after=discord.Object(id=last_message_id)).flatten()
+                                        messages = channel.history(limit=100, after=discord.Object(id=last_message_id))
                                     else:
-                                        messages = await channel.history(limit=100).flatten()
+                                        messages = channel.history(limit=100)
 
                                     last_message = None
-                                    for message in messages:
-                                        if message.author == member and message.created_at >= datetime.now(timezone.utc) - timeframe:
+                                    async for message in messages:
+                                        if message.author == member and message.created_at >= datetime.now(tz=datetime.timezone.utc) - timeframe:
                                             user_message_count += 1
                                         last_message = message
                                     if last_message:
                                         last_message_ids[str(channel.id)] = last_message.id
+                                    await self.log(guild, f'Finished checking messages in channel {channel.name}')  # Debug Log
                                 except discord.errors.Forbidden:
+                                    await self.log(guild, f'Could not access channel {channel.name}')  # Debug Log
                                     continue  # Ignore channels the bot doesn't have access to
 
-                            await self.log(guild, f'{member.name} message count: {user_message_count}')  # print user message count
+                            await self.log(guild, f'Finished processing member {member.name}. Message count: {user_message_count}')  # Debug Log
                             if user_message_count >= min_messages:
                                 if reward_role not in member.roles:
-                                    await self.log(guild, f'Adding reward role from {member.name}')  # print user name when role is added
+                                    await self.log(guild, f'Adding reward role to {member.name}')  # Debug Log
                                     await member.add_roles(reward_role)
                             else:
                                 if reward_role in member.roles:
-                                    await self.log(guild, f'Removing reward role from {member.name}')  # print user name when role is removed
+                                    await self.log(guild, f'Removing reward role from {member.name}')  # Debug Log
                                     await member.remove_roles(reward_role)
-                await self.config.guild(guild).last_message_ids.set(last_message_ids)
-            # await asyncio.sleep(20 * 60)  # Sleep for 20 minutes (for testing)
+                    await self.config.guild(guild).last_message_ids.set(last_message_ids)
             await asyncio.sleep(1 * 60 * 60)  # Run the task every 1 hours
             
     @commands.group()
