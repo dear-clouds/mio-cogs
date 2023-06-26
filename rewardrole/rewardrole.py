@@ -140,7 +140,7 @@ class RewardRole(commands.Cog):
             ignored_channels = [ctx.guild.get_channel(channel_id) for channel_id in role_data["ignored_channels"]]
             ignored_categories = [ctx.guild.get_channel(category_id) for category_id in role_data["ignored_categories"]]
             count_only_link_messages = role_data.get("count_only_link_messages", False)
-            embed.add_field(name=f"{role.name}", value=f"Min messages: {role_data['min_messages']}\nTimeframe: {role_data['timeframe_days']} days\nReward role: {reward_role.name}\nCount messages that only contain links: {'Yes' if count_only_link_messages else 'No'}\nExcluded roles: {', '.join([excluded_role.name for excluded_role in excluded_roles if excluded_role])}\nIgnored channels: {', '.join([ignored_channel.name for ignored_channel in ignored_channels if ignored_channel])}\nIgnored categories: {', '.join([ignored_category.name for ignored_category in ignored_categories if ignored_category])}", inline=False)
+            embed.add_field(name=f"{role.name}", value=f"Min messages: {role_data['min_messages']}\nTimeframe: {role_data['timeframe_days']} days\nReward role: {reward_role.name}\nCount messages that only contain links: {'No' if count_only_link_messages else 'Yes'}\nExcluded roles: {', '.join([excluded_role.name for excluded_role in excluded_roles if excluded_role])}\nIgnored channels: {', '.join([ignored_channel.name for ignored_channel in ignored_channels if ignored_channel])}\nIgnored categories: {', '.join([ignored_category.name for ignored_category in ignored_categories if ignored_category])}", inline=False)
 
         await ctx.send(embed=embed)
 
