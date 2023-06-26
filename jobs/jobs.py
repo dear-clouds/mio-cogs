@@ -1,6 +1,6 @@
 import discord
 from redbot.core import commands, app_commands, Config
-from discord import Embed, Colour, Button, ButtonStyle, ThreadType
+from discord import Embed, Colour, Button, ButtonStyle
 from typing import Optional
 
 class Jobs(commands.Cog):
@@ -65,34 +65,34 @@ class Jobs(commands.Cog):
 
     async def add_job(self, interaction: discord.Interaction, title: str, salary: int, description: str, 
                     image: Optional[str] = None, color: Optional[str] = None):
-    """Helper function to create a job"""
-    if not await self._can_create(interaction.user):
-        await interaction.response.send_message("You do not have permission to create jobs", ephemeral=True)
-        return
+        """Helper function to create a job"""
+        if not await self._can_create(interaction.user):
+            await interaction.response.send_message("You do not have permission to create jobs", ephemeral=True)
+            return
 
-    economy = self.bot.get_cog('Economy')
-    if not economy:
-        return
+        economy = self.bot.get_cog('Economy')
+        if not economy:
+            return
 
-    creator_balance = await economy.bank.get_balance(interaction.user)
-    if creator_balance < salary:
-        await interaction.response.send_message("You do not have enough funds to post this job", ephemeral=True)
-        return
+        creator_balance = await economy.bank.get_balance(interaction.user)
+        if creator_balance < salary:
+            await interaction.response.send_message("You do not have enough funds to post this job", ephemeral=True)
+            return
 
-    await economy.bank.withdraw_credits(interaction.user, salary)
+        await economy.bank.withdraw_credits(interaction.user, salary)
 
-    job_id = interaction.id
+        job_id = interaction.id
 
-    async with self.config.guild(interaction.guild).jobs() as jobs:
-        jobs[str(job_id)] = {
-            "creator": interaction.user.id,
-            "taker": None,
-            "salary": salary,
-            "description": description,
-            "status": "open",
-            "color": color,
-            "image_url": image
-        }
+        async with self.config.guild(interaction.guild).jobs() as jobs:
+            jobs[str(job_id)] = {
+                "creator": interaction.user.id,
+                "taker": None,
+                "salary": salary,
+                "description": description,
+                "status": "open",
+                "color": color,
+                "image_url": image
+            }
 
         embed = Embed(title=f"{title} #{job_id}", description=description, colour=getattr(Colour, color)() if hasattr(Colour, color) else Colour.blue())
         embed.add_field(name="Salary", value=str(salary))
