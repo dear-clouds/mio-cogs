@@ -20,15 +20,17 @@ class RewardRole(commands.Cog):
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
             for guild in self.bot.guilds:
-                await self.log(guild, f'Checking guild {guild.name}')  # Add logging here
+                await self.log(guild, f'Checking guild {guild.name}')
                 roles = await self.config.guild(guild).roles()
                 last_message_ids = await self.config.guild(guild).last_message_ids()
                 for role_id, role_data in roles.items():
                     role = guild.get_role(int(role_id))
                     reward_role = guild.get_role(role_data["reward_role"])
                     excluded_roles = [guild.get_role(excluded_role_id) for excluded_role_id in role_data["excluded_roles"]]
+                    await self.log(guild, f'Processing role {role.name}')
                     for member in guild.members:
                         if role in member.roles and not any(excluded_role in member.roles for excluded_role in excluded_roles):
+                            await self.log(guild, f'Processing member {member.name}')
                             min_messages = role_data["min_messages"]
                             timeframe = timedelta(days=role_data["timeframe_days"])
                             user_message_count = 0
