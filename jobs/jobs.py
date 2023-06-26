@@ -57,35 +57,34 @@ class Jobs(commands.Cog):
         """Create a new job posting"""
         await self.add_job(ctx, title, salary, description, image, color)
 
-    @jobs.command(name='add')
     async def add_job_message(self, ctx: commands.Context, title: str, salary: int, description: str, 
                             image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
         await self.add_job(ctx, title, salary, description, image, color)
 
-    async def add_job(self, interaction: discord.Interaction, title: str, salary: int, description: str, 
+    async def add_job(self, ctx: commands.Context, title: str, salary: int, description: str, 
                     image: Optional[str] = None, color: Optional[str] = None):
         """Helper function to create a job"""
-        if not await self._can_create(interaction.user):
-            await interaction.response.send_message("You do not have permission to create jobs", ephemeral=True)
+        if not await self._can_create(ctx.author):
+            await ctx.send("You do not have permission to create jobs", ephemeral=True)
             return
 
         economy = self.bot.get_cog('Economy')
         if not economy:
             return
 
-        creator_balance = await economy.bank.get_balance(interaction.user)
+        creator_balance = await economy.bank.get_balance(ctx.author)
         if creator_balance < salary:
-            await interaction.response.send_message("You do not have enough funds to post this job", ephemeral=True)
+            await ctx.send("You do not have enough funds to post this job", ephemeral=True)
             return
 
-        await economy.bank.withdraw_credits(interaction.user, salary)
+        await economy.bank.withdraw_credits(ctx.author, salary)
 
-        job_id = interaction.id
+        job_id = ctx.interaction.id
 
-        async with self.config.guild(interaction.guild).jobs() as jobs:
+        async with self.config.guild(ctx.guild).jobs() as jobs:
             jobs[str(job_id)] = {
-                "creator": interaction.user.id,
+                "creator": ctx.author.id,
                 "taker": None,
                 "salary": salary,
                 "description": description,
@@ -101,21 +100,21 @@ class Jobs(commands.Cog):
         if image:
             embed.set_image(url=image)
 
-        job_channel_id = await self.config.guild(interaction.guild).job_channel_id()
+        job_channel_id = await self.config.guild(ctx.guild).job_channel_id()
         job_channel = self.bot.get_channel(job_channel_id)
         job_message = await job_channel.send(embed=embed)
         thread = await job_message.create_thread(name=f"{title} #{job_id} Discussion")
 
-        async with self.config.guild(interaction.guild).jobs() as jobs:
+        async with self.config.guild(ctx.guild).jobs() as jobs:
             job = jobs[str(job_id)]
             job["thread_id"] = thread.id
-            await job_message.add_reaction(await self.config.guild(interaction.guild).emoji())
+            await job_message.add_reaction(await self.config.guild(ctx.guild).emoji())
             job["message_id"] = job_message.id
 
         job_done_button = Button(style=ButtonStyle.SUCCESS, label="Job Done", custom_id=f"job_done_{job_id}")
         await job_message.edit(components=[job_done_button])
 
-        await interaction.response.send_message(f"Job created with ID {job_id}", ephemeral=True)
+        await ctx.send(f"Job created with ID {job_id}", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_component(self, ctx):
