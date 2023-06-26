@@ -1,6 +1,7 @@
 from discord import Embed, Colour, Button, ButtonStyle
 from discord.ext import commands
-from discord.app import OptionType, Option, CommandContext
+import interactions
+from interactions import OptionType, Option, CommandContext
 
 class Jobs(commands.Cog):
     def __init__(self, bot):
