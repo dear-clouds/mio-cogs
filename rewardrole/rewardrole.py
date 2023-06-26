@@ -21,7 +21,6 @@ class RewardRole(commands.Cog):
                 await self.log(guild, f'Checking guild {guild.name}')  # Debug Log
                 roles = await self.config.guild(guild).roles()
                 await self.log(guild, f'Found {len(roles)} role(s) in the configuration')  # Debug Log
-                last_message_ids = await self.config.guild(guild).last_message_ids()
                 for role_id, role_data in roles.items():
                     role = guild.get_role(int(role_id))
                     reward_role = guild.get_role(role_data["reward_role"])
@@ -42,19 +41,19 @@ class RewardRole(commands.Cog):
                                     overwrites = channel.overwrites_for(role)
                                     if overwrites.send_messages is False:
                                         continue
-                                    if isinstance(channel, discord.CategoryChannel) and channel.id in role_data.get("ignored_categories", []):
+                                    if channel.category_id in role_data.get("ignored_categories", []):
                                         continue
                                     if isinstance(channel, discord.TextChannel) or isinstance(channel, discord.Thread):
                                         if channel.id in role_data.get("ignored_channels", []):
                                             continue
                                         await self.log(guild, f'Checking messages in channel {channel.name}')  # Debug Log
-                                        user_message_count += await self.process_channel_or_thread(channel, member, timeframe, last_message_ids, guild)
+                                        user_message_count += await self.process_channel_or_thread(channel, member, timeframe, guild)
                                     if isinstance(channel, discord.ForumChannel):
                                         if channel.id in role_data.get("ignored_channels", []):
                                             continue
                                         for thread in channel.threads:
                                             await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
-                                            user_message_count += await self.process_channel_or_thread(thread, member, timeframe, last_message_ids, guild)
+                                            user_message_count += await self.process_channel_or_thread(thread, member, timeframe, guild)
 
                                 await self.log(guild, f'Finished processing member {member.name}. Message count: {user_message_count}')  # Debug Log
                                 if user_message_count >= min_messages:
@@ -68,7 +67,7 @@ class RewardRole(commands.Cog):
                         except Exception as e:
                             await self.log(guild, f'An error occurred while processing member {member.name}: {str(e)}')  # Error Log
                             continue  # Continue with the next member even if an error occurred
-                await asyncio.sleep(4 * 60 * 60)  # Run the task every 4 hours
+            await asyncio.sleep(4 * 60 * 60)  # Run the task every 4 hours
 
     async def process_channel_or_thread(self, channel_or_thread, member, timeframe, guild):
         message_count = 0
