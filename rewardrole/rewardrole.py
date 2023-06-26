@@ -86,7 +86,7 @@ class RewardRole(commands.Cog):
             last_message = None
             user_message_count = 0
             async for message in messages:
-                if message.author == member and message.created_at >= datetime.now(tz=datetime.timezone.utc) - timeframe:
+                if message.author == member and message.created_at >= datetime.now(tz=timezone.utc) - timeframe:
                     user_message_count += 1
                     await self.log(guild, f'Found message from {member.name} in channel {channel.name}')  # Debug Log
                 last_message = message
