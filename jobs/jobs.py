@@ -106,16 +106,15 @@ class Jobs(commands.Cog):
         job_channel_id = await self.config.guild(ctx.guild).job_channel_id()
         job_channel = self.bot.get_channel(job_channel_id)
         job_message = await job_channel.send(embed=embed)
-        thread = await job_message.create_thread(name=f"{title} Discussion")
+        job_done_button = Button(style=ButtonStyle.green, label="Job Done", custom_id=f"job_done_{job_id}")
+        job_message = await job_channel.send(embed=embed, components=[job_done_button])
+        thread = await job_message.create_thread(name=f"{title}'s Discussion")
 
         async with self.config.guild(ctx.guild).jobs() as jobs:
             job = jobs[str(job_id)]
             job["thread_id"] = thread.id
             await job_message.add_reaction(await self.config.guild(ctx.guild).emoji())
             job["message_id"] = job_message.id
-
-        job_done_button = discord.ui.Button(style=discord.ButtonStyle.green, label="Job Done", custom_id=f"job_done_{job_id}")
-        await job_message.edit(components=[job_done_button])
 
         await ctx.send(f"Job created with ID {job_id}", ephemeral=True)
 
@@ -149,7 +148,7 @@ class Jobs(commands.Cog):
                 embed.color = Colour.green()
                 await job_message.edit(embed=embed)
                 job_done_button = Button(style=ButtonStyle.green, label="Job Done", custom_id=f"job_done_{job_id}")
-                await job_message.remove_components(job_done_button)
+                await job_message.edit(components=[])
 
             await ctx.send("Job has been marked as complete.")
 
