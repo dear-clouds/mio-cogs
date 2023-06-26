@@ -1,5 +1,5 @@
 import discord
-from redbot.core import commands, app_commands, Config
+from redbot.core import commands, Config, bank
 from discord import Embed, Colour, Button, ButtonStyle
 from typing import Optional
 
@@ -51,7 +51,7 @@ class Jobs(commands.Cog):
             roles[str(role.id)] = "take"
         await ctx.send(f"Role {role.name} can now take jobs.")
 
-    @app_commands.command(name='job')
+    @commands.command(name='job')
     async def add_job_slash(self, ctx: commands.Context, title: str, salary: int, description: str, 
                         image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
@@ -70,16 +70,12 @@ class Jobs(commands.Cog):
             await ctx.send("You do not have permission to create jobs", ephemeral=True)
             return
 
-        economy = self.bot.get_cog('Economy')
-        if not economy:
-            return
-
-        creator_balance = await economy.bank.get_balance(ctx.author)
+        creator_balance = await bank.get_balance(ctx.author)
         if creator_balance < salary:
             await ctx.send("You do not have enough funds to post this job", ephemeral=True)
             return
 
-        await economy.bank.withdraw_credits(ctx.author, salary)
+        await bank.withdraw_credits(ctx.author, salary)
 
         job_id = ctx.interaction.id
 
@@ -130,22 +126,16 @@ class Jobs(commands.Cog):
             if not job or job["status"] != "in_progress" or ctx.author.id != job["creator"] and not ctx.author.guild_permissions.administrator:
                 return
 
-            economy = self.bot.get_cog('Economy')
-            if not economy:
-                return
-
             taker = ctx.guild.get_member(job["taker"])
             if not taker:
                 return
 
-            economy.bank.deposit_credits(taker, job["salary"])
+            await bank.deposit_credits(taker, job["salary"])
             job["status"] = "complete"
 
             thread = ctx.guild.get_thread(job["thread_id"])
             if thread:
                 await thread.send("Job has been marked as complete.")
-                # if not thread.is_private and not thread.archived:
-                #     await thread.archive()
 
             job_message = await ctx.channel.fetch_message(job["message_id"])
             if job_message:
