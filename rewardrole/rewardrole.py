@@ -51,7 +51,8 @@ class RewardRole(commands.Cog):
                                         await self.log(guild, f'Checking messages in channel {channel.name}')  # Debug Log
                                         user_message_count += await self.process_channel_or_thread(channel, member, timeframe, last_message_ids, guild)
                                     if isinstance(channel, discord.ForumChannel):
-                                        for thread in await channel.fetch_active_threads():
+                                        threads_info = await channel.fetch_threads()
+                                        for thread in threads_info.active:
                                             await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
                                             user_message_count += await self.process_channel_or_thread(thread, member, timeframe, last_message_ids, guild)
                                 await self.log(guild, f'Finished processing member {member.name}. Message count: {user_message_count}')  # Debug Log
@@ -91,7 +92,7 @@ class RewardRole(commands.Cog):
             log_channel = guild.get_channel(log_channel_id)
             if log_channel:
                 await log_channel.send(message)
-            
+
     @commands.group()
     @commands.guild_only()
     @commands.admin_or_permissions(manage_guild=True)
