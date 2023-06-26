@@ -36,6 +36,9 @@ class RewardRole(commands.Cog):
                             timeframe = timedelta(days=role_data["timeframe_days"])
                             user_message_count = 0
                             for channel in guild.text_channels:
+                                overwrites = channel.overwrites_for(guild.default_role)
+                                if overwrites.send_messages is False:
+                                    continue
                                 if channel.category and channel.category.id in role_data.get("ignored_categories", []):
                                     continue
                                 if channel.id in role_data.get("ignored_channels", []):
