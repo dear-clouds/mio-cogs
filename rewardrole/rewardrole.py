@@ -70,16 +70,18 @@ class RewardRole(commands.Cog):
                             continue  # Continue with the next member even if an error occurred
             await asyncio.sleep(4 * 60 * 60)  # Run the task every 4 hours
 
-    async def process_channel_or_thread(self, channel_or_thread, member, timeframe, guild):
+    async def process_channel_or_thread(self, channel_or_thread, member, timeframe, count_only_link_messages, guild):
         message_count = 0
         now = datetime.now(timezone.utc)
         earliest_time = now - timeframe
         async for message in channel_or_thread.history(limit=None, after=earliest_time):
             if message.author == member:
-                # Checks if the message is just a URL (or multiple URLs)
-                urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content)
-                non_link_content = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', message.content).strip()
-                if not urls or non_link_content:
+                if count_only_link_messages:
+                    urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content)
+                    non_link_content = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', message.content).strip()
+                    if not urls or non_link_content:
+                        message_count += 1
+                else:
                     message_count += 1
         return message_count
             
@@ -98,7 +100,7 @@ class RewardRole(commands.Cog):
         pass
 
     @rewardrole.command(name="add")
-    async def add_role_condition(self, ctx, role: discord.Role, min_messages: int, timeframe_days: int, reward_role: discord.Role, excluded_roles: commands.Greedy[discord.Role], ignored_channels: commands.Greedy[discord.TextChannel]=None, ignored_categories: commands.Greedy[discord.CategoryChannel]=None):
+    async def add_role_condition(self, ctx, role: discord.Role, min_messages: int, timeframe_days: int, reward_role: discord.Role, count_only_link_messages: bool, excluded_roles: commands.Greedy[discord.Role], ignored_channels: commands.Greedy[discord.TextChannel]=None, ignored_categories: commands.Greedy[discord.CategoryChannel]=None):
         """Add a role condition for a specific role."""
 
         async with self.config.guild(ctx.guild).roles() as roles:
@@ -106,6 +108,7 @@ class RewardRole(commands.Cog):
                 "min_messages": min_messages,
                 "timeframe_days": timeframe_days,
                 "reward_role": reward_role.id,
+                "count_only_link_messages": count_only_link_messages,
                 "excluded_roles": [excluded_role.id for excluded_role in excluded_roles],
                 "ignored_channels": [channel.id for channel in ignored_channels],
                 "ignored_categories": [category.id for category in ignored_categories]
