@@ -40,26 +40,21 @@ class RewardRole(commands.Cog):
                                 permissions = channel.permissions_for(member)
                                 if not permissions.send_messages:
                                     continue
+                                overwrites = channel.overwrites_for(role)
+                                if overwrites.send_messages is False:
+                                    continue
                                 if channel.category and channel.category.id in role_data.get("ignored_categories", []):
                                     continue
                                 if channel.id in role_data.get("ignored_channels", []):
                                     continue
                                 try:
                                     await self.log(guild, f'Checking messages in channel {channel.name}')  # Debug Log
-                                    last_message_id = last_message_ids.get(str(channel.id))
-                                    if last_message_id:
-                                        messages = channel.history(limit=100, after=discord.Object(id=last_message_id))
-                                    else:
-                                        messages = channel.history(limit=100)
-
-                                    last_message = None
-                                    async for message in messages:
-                                        if message.author == member and message.created_at >= datetime.now(tz=datetime.timezone.utc) - timeframe:
-                                            user_message_count += 1
-                                        last_message = message
-                                    if last_message:
-                                        last_message_ids[str(channel.id)] = last_message.id
-                                    await self.log(guild, f'Finished checking messages in channel {channel.name}')  # Debug Log
+                                    user_message_count += await self.process_channel(channel, member, timeframe, role_data, last_message_ids, guild)
+                                    # If the channel is a Forum Channel, check its threads too
+                                    if isinstance(channel, discord.ForumChannel):
+                                        for thread in channel.threads:
+                                            await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
+                                            user_message_count += await self.process_channel(thread, member, timeframe, role_data, last_message_ids, guild)
                                 except discord.errors.Forbidden:
                                     await self.log(guild, f'Could not access channel {channel.name}')  # Debug Log
                                     continue  # Ignore channels the bot doesn't have access to
@@ -75,6 +70,24 @@ class RewardRole(commands.Cog):
                                     await member.remove_roles(reward_role)
                     await self.config.guild(guild).last_message_ids.set(last_message_ids)
             await asyncio.sleep(1 * 60 * 60)  # Run the task every 1 hours
+            
+    async def process_channel(self, channel, member, timeframe, role_data, last_message_ids, guild):
+        last_message_id = last_message_ids.get(str(channel.id))
+        if last_message_id:
+            messages = channel.history(limit=100, after=discord.Object(id=last_message_id))
+        else:
+            messages = channel.history(limit=100)
+
+        last_message = None
+        user_message_count = 0
+        async for message in messages:
+            if message.author == member and message.created_at >= datetime.now(tz=datetime.timezone.utc) - timeframe:
+                user_message_count += 1
+            last_message = message
+        if last_message:
+            last_message_ids[str(channel.id)] = last_message.id
+        await self.log(guild, f'Finished checking messages in channel {channel.name}')  # Debug Log
+        return user_message_count
             
     @commands.group()
     @commands.guild_only()
