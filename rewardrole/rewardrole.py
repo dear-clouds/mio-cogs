@@ -51,10 +51,10 @@ class RewardRole(commands.Cog):
                                         await self.log(guild, f'Checking messages in channel {channel.name}')  # Debug Log
                                         user_message_count += await self.process_channel_or_thread(channel, member, timeframe, last_message_ids, guild)
                                     if isinstance(channel, discord.ForumChannel):
-                                        threads_info = await channel.fetch_threads()
-                                        for thread in threads_info.active:
+                                        for thread in channel.threads:
                                             await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
                                             user_message_count += await self.process_channel_or_thread(thread, member, timeframe, last_message_ids, guild)
+
                                 await self.log(guild, f'Finished processing member {member.name}. Message count: {user_message_count}')  # Debug Log
                                 if user_message_count >= min_messages:
                                     if reward_role not in member.roles:
