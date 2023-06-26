@@ -114,7 +114,7 @@ class Jobs(commands.Cog):
             await job_message.add_reaction(await self.config.guild(ctx.guild).emoji())
             job["message_id"] = job_message.id
 
-        job_done_button = discord.ui.Button(style=discord.ButtonStyle.SUCCESS, label="Job Done", custom_id=f"job_done_{job_id}")
+        job_done_button = discord.ui.Button(style=discord.ButtonStyle.green, label="Job Done", custom_id=f"job_done_{job_id}")
         await job_message.edit(components=[job_done_button])
 
         await ctx.send(f"Job created with ID {job_id}", ephemeral=True)
@@ -170,7 +170,8 @@ class Jobs(commands.Cog):
         if payload.channel_id != job_channel_id:
             return
 
-        async with self.config.guild(payload.guild_id).jobs() as jobs:
+        guild = self.bot.get_guild(payload.guild_id)
+        async with self.config.guild(guild).jobs() as jobs:
             job = jobs.get(str(payload.message_id))
             if not job or job["status"] != "open":
                 return
