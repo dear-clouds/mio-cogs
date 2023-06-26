@@ -90,7 +90,7 @@ class Jobs(commands.Cog):
                 "image_url": image
             }
 
-        default_color = getattr(discord.Colour, color, discord.Embed.Empty)
+        default_color = getattr(discord.Colour, color, discord.Color.default())
 
         embed = discord.Embed(
             title=f"{title} #{job_id}",
