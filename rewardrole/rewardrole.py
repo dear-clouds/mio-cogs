@@ -19,21 +19,18 @@ class RewardRole(commands.Cog):
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
             for guild in self.bot.guilds:
-                # await self.log(guild, f'Checking guild {guild.name}')  # Debug Log
                 roles = await self.config.guild(guild).roles()
-                # await self.log(guild, f'Found {len(roles)} role(s) in the configuration')  # Debug Log
                 for role_id, role_data in roles.items():
                     role = guild.get_role(int(role_id))
                     reward_role = guild.get_role(role_data["reward_role"])
                     excluded_roles = [guild.get_role(excluded_role_id) for excluded_role_id in role_data["excluded_roles"]]
-                    await self.log(guild, f'Processing role {role.name}')  # Debug Log
                     for member in guild.members:
                         try:
                             if role in member.roles and not any(excluded_role in member.roles for excluded_role in excluded_roles):
-                                # await self.log(guild, f'Processing member {member.name}')  # Debug Log
                                 min_messages = role_data["min_messages"]
                                 timeframe = timedelta(days=role_data["timeframe_days"])
                                 user_message_count = 0
+                                count_only_link_messages = role_data.get("count_only_link_messages", False)
                                 for channel in guild.channels:
                                     # Check if member has the permissions to send messages in the channel
                                     permissions = channel.permissions_for(member)
@@ -48,13 +45,13 @@ class RewardRole(commands.Cog):
                                         if channel.id in role_data.get("ignored_channels", []):
                                             continue
                                         # await self.log(guild, f'Checking messages in channel {channel.name}')  # Debug Log
-                                        user_message_count += await self.process_channel_or_thread(channel, member, timeframe, guild)
+                                        user_message_count += await self.process_channel_or_thread(channel, member, timeframe, count_only_link_messages, guild)
                                     if isinstance(channel, discord.ForumChannel):
                                         if channel.id in role_data.get("ignored_channels", []):
                                             continue
                                         for thread in channel.threads:
                                             # await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
-                                            user_message_count += await self.process_channel_or_thread(thread, member, timeframe, guild)
+                                            user_message_count += await self.process_channel_or_thread(thread, member, timeframe, count_only_link_messages, guild)
 
                                 await self.log(guild, f'Finished processing member {member.name}. Message count: {user_message_count}')  # Debug Log
                                 if user_message_count >= min_messages:
