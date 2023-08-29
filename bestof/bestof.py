@@ -51,8 +51,12 @@ class BestOf(commands.Cog):
         try:
             loop = ctx.bot.loop
 
+            # Get the plex server URL and token outside of the lambda
+            plex_server_url = await self.config.plex_server_url()
+            token = await self.config.token()
+
             # Using run_in_executor to run the synchronous PlexServer call in a separate thread
-            self.plex = await loop.run_in_executor(None, lambda: PlexServer(await self.config.plex_server_url(), await self.config.token()))
+            self.plex = await loop.run_in_executor(None, lambda: PlexServer(plex_server_url, token))
 
             await ctx.send("Connection to Plex server was successful.")
         except Exception as e:
