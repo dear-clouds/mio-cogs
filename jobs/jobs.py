@@ -109,7 +109,8 @@ class Jobs(commands.Cog):
         thread = await job_message.create_thread(name=f"{title}'s Discussion")
 
         job_done_button = discord.ui.Button(style=discord.ButtonStyle.green, label="Job Done", custom_id=f"job_done_{job_id}")
-        job_message = await job_channel.send(embed=embed, components=[job_done_button])
+        action_row = discord.ui.ActionRow(job_done_button)
+        job_message = await job_channel.send(embed=embed, components=[action_row])
 
         async with self.config.guild(ctx.guild).jobs() as jobs:
             job = jobs[str(job_id)]

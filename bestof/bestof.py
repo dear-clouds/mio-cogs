@@ -1,6 +1,7 @@
 import discord
 import plexapi
 import asyncio
+import aiohttp
 from redbot.core import commands, Config
 from plexapi.server import PlexServer
 from datetime import datetime

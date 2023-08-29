@@ -12,7 +12,7 @@ I'm still working on some of those cogs, so please only install those listed bel
 
 ## Reward Role
 
-The purpose of this cog is to assign a role to active users based on specific conditions. However, please note that if a message consists solely of a URL, it will not be considered as contributing towards activity.
+The purpose of this cog is to assign a role to active users based on specific conditions. You also have the option to count a message consists solely of a URL as contribution towards activity or not.
 
 ```
 [p]cog install mio-cogs rewardrole
