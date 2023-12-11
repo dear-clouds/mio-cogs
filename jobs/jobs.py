@@ -15,7 +15,7 @@ class Jobs(commands.Cog):
         }
         self.config.register_guild(**default_guild)
 
-    @commands.hybrid_group()
+    @commands.group()
     @commands.guild_only()
     async def jobs(self, ctx):
         """Manage jobs"""
@@ -51,14 +51,13 @@ class Jobs(commands.Cog):
             roles[str(role.id)] = "take"
         await ctx.send(f"Role {role.name} can now take jobs.")
 
-    @commands.hybrid_group()
-    @commands.command(name='job')
+    @app_commands.command(name='job')
     async def add_job_slash(self, ctx: commands.Context, title: str, salary: int, description: str, 
                         image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
         await self.add_job(ctx, title, salary, description, image, color)
 
-    @job.command(name='add')
+    @jobs.command(name='add')
     async def add_job_message(self, ctx: commands.Context, title: str, salary: int, description: str, 
                           image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
@@ -73,7 +72,7 @@ class Jobs(commands.Cog):
 
         creator_balance = await bank.get_balance(ctx.author)
         if creator_balance < salary:
-            await ctx.send("You do not have enough funds to post this job", ephemeral=True)
+            await ctx.send("You do not have enough credits to post this job", ephemeral=True)
             return
 
         await bank.withdraw_credits(ctx.author, salary)
