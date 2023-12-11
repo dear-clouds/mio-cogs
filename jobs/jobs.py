@@ -1,5 +1,5 @@
 import discord
-from redbot.core import commands, Config, bank
+from redbot.core import commands, Config, bank, app_commands
 from discord import Embed, Colour, Button, ButtonStyle
 from typing import Optional
 
@@ -15,7 +15,7 @@ class Jobs(commands.Cog):
         }
         self.config.register_guild(**default_guild)
 
-    @commands.group()
+    @commands.hybrid_group()
     @commands.guild_only()
     async def jobs(self, ctx):
         """Manage jobs"""
@@ -51,13 +51,14 @@ class Jobs(commands.Cog):
             roles[str(role.id)] = "take"
         await ctx.send(f"Role {role.name} can now take jobs.")
 
+    @commands.hybrid_group()
     @commands.command(name='job')
     async def add_job_slash(self, ctx: commands.Context, title: str, salary: int, description: str, 
                         image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
         await self.add_job(ctx, title, salary, description, image, color)
 
-    @jobs.command(name='add')
+    @job.command(name='add')
     async def add_job_message(self, ctx: commands.Context, title: str, salary: int, description: str, 
                           image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
@@ -227,3 +228,25 @@ class Jobs(commands.Cog):
 
     async def cog_added(self):
         await self.bot.load_application_commands()
+
+
+class JobView(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout=180)  # seconds
+        self._message: discord.Message = None
+
+    async def on_timeout(self) -> None:
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+        if self._message is not None:
+            try:
+                await self._message.edit(view=self)
+            except discord.HTTPException:
+                pass
+
+    # Example button for applying to a job
+    @discord.ui.button(label="Apply", style=discord.ButtonStyle.success)
+    async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        # Placeholder action for applying to a job
+        await interaction.response.send_message("Application received!", ephemeral=True)

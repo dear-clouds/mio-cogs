@@ -85,6 +85,7 @@ class BestOf(commands.Cog):
 
     @bestof.command(name="libraries")
     async def set_libraries(self, ctx: commands.Context):
+        """Sets the allowed libraries to vote in."""
         libraries = self.plex.library.sections()
         allowed_libraries = [lib for lib in libraries if lib.type in {"movie", "show"}]
 
