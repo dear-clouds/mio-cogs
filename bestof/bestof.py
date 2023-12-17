@@ -2,7 +2,7 @@ import discord
 import plexapi
 import asyncio
 import aiohttp
-from redbot.core import commands, Config
+from redbot.core import commands, Config, app_commands
 from plexapi.server import PlexServer
 from datetime import datetime
 from typing import Optional
@@ -112,61 +112,23 @@ class BestOf(commands.Cog):
 
     @commands.command()
     async def vote(self, ctx):
-        """Vote for the titles you think were the best this year! Only 1 title per library."""
         allowed_libraries = await self.config.allowed_libraries()
 
         if not allowed_libraries:
             await ctx.send("No libraries have been configured for voting.")
             return
 
-        embed = discord.Embed(title="Select a Library to Vote In", color=discord.Color.blue())
-        for idx, library_name in enumerate(allowed_libraries):
-            embed.add_field(name=f"{chr(ord('🇦') + idx)}. {library_name}", value="\u200b", inline=True)
+        select_menu = LibrarySelect(allowed_libraries, self)
+        view = View()
+        view.add_item(select_menu)
 
-        message = await ctx.send(embed=embed)
-        for idx, _ in enumerate(allowed_libraries):
-            await message.add_reaction(chr(ord("🇦") + idx))
+        await ctx.send("Select a Library to Vote In", view=view)
 
-        def check(reaction, user):
-            return (
-                user == ctx.author
-                and reaction.message.id == message.id
-                and reaction.emoji in [chr(ord("🇦") + i) for i in range(len(allowed_libraries))]
-            )
-
-        try:
-            reaction, _ = await self.bot.wait_for("reaction_add", timeout=60.0, check=check)
-        except asyncio.TimeoutError:
-            await ctx.send("No response received. Vote canceled.")
-            return
-
-        index = ord(reaction.emoji) - ord("🇦")
-        selected_library = allowed_libraries[index]
-
-        # Get the library object from Plex server
-        library = self.plex.library.section(selected_library)
-
-        # Determine if the library is for TV shows
-        is_tv_show = library.type == "show"
-
-        await ctx.send(f"Selected library: {selected_library}. Please type the title you want to vote for.")
-        def message_check(m):
-            return m.author == ctx.author and m.channel == ctx.channel
-
-        try:
-            title_message = await self.bot.wait_for("message", timeout=60.0, check=message_check)
-        except asyncio.TimeoutError:
-            await ctx.send("No response received. Vote canceled.")
-            return
-
-        title = title_message.content
-        await self.add_vote(ctx, selected_library, title, is_tv_show=is_tv_show)
-
-    async def add_vote(self, ctx, library_name: str, title: str, is_tv_show: bool = False):
+    async def add_vote(self, interaction, library_name: str, title: str, is_tv_show: bool = False):
         voting_month = await self.config.voting_month()
         current_month = datetime.today().month
         if current_month != voting_month:
-            await ctx.send(f"Voting is only allowed during month {voting_month}.")
+            await interaction.response.send_message(f"Voting is only allowed during month {voting_month}.", ephemeral=True)
             return
 
         # Ensure the Plex server has been initialized
@@ -351,3 +313,40 @@ class BestOf(commands.Cog):
             collection.addItems(movie)
 
         await ctx.send("Collections created.")
+        
+class LibrarySelect(Select):
+    def __init__(self, libraries, cog, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.libraries = libraries
+        self.cog = cog
+        for library_name in libraries:
+            self.add_option(label=library_name)
+
+    async def callback(self, interaction: discord.Interaction):
+        # Get the selected library name
+        selected_library = self.values[0]
+
+        # Ensure the Plex server has been initialized
+        if not self.cog.plex:
+            await interaction.response.send_message("The Plex server has not been configured.", ephemeral=True)
+            return
+
+        # Get the library object from the Plex server
+        library = self.cog.plex.library.section(selected_library)
+        is_tv_show = library.type == "show"
+
+        # Ask the user to type the title they want to vote for
+        await interaction.response.send_message(f"Selected library: {selected_library}. Please type the title you want to vote for.")
+
+        # Wait for the user's response
+        def message_check(m):
+            return m.author == interaction.user and m.channel == interaction.channel
+
+        try:
+            title_message = await self.cog.bot.wait_for("message", timeout=60.0, check=message_check)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
+            return
+
+        title = title_message.content
+        await self.cog.add_vote(interaction, selected_library, title, is_tv_show=is_tv_show)
