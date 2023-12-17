@@ -64,32 +64,36 @@ class Jobs(commands.Cog):
         """Create a new job posting"""
         await self.add_job(ctx, title, salary, description, image, color)
 
-    async def add_job(self, ctx: commands.Context, title: str, salary: int, description: str,
-                      image: Optional[str] = None, color: Optional[str] = None):
+    async def add_job(self, context, title: str, salary: int, description: str,
+                  image: Optional[str] = None, color: Optional[str] = None):
         """Helper function to create a job"""
-        # Replace ctx.author with ctx.user for interactions
-        if isinstance(ctx, discord.Interaction):
-            author = ctx.user
+        # Determine if context is from a slash command or text command
+        if isinstance(context, commands.Context):
+            author = context.author
+            guild = context.guild
+            job_id = context.message.id
+        elif isinstance(context, discord.Interaction):
+            author = context.user
+            guild = context.guild
+            job_id = context.id
         else:
-            author = ctx.author
+            raise TypeError("Invalid context type")
 
         if not await self._can_create(author):
-            await ctx.send("You do not have permission to create jobs", ephemeral=True)
+            await context.send("You do not have permission to create jobs", ephemeral=True)
             return
 
-        currency_name = await bank.get_currency_name(guild=ctx.guild)
-        creator_balance = await bank.get_balance(ctx.author)
+        currency_name = await bank.get_currency_name(guild=guild)
+        creator_balance = await bank.get_balance(author)
         if creator_balance < salary:
-            await ctx.send("You do not have enough credits to post this job", ephemeral=True)
+            await context.send("You do not have enough credits to post this job", ephemeral=True)
             return
 
-        await bank.withdraw_credits(ctx.author, salary)
+        await bank.withdraw_credits(author, salary)
 
-        job_id = ctx.message.id
-
-        async with self.config.guild(ctx.guild).jobs() as jobs:
+        async with self.config.guild(guild).jobs() as jobs:
             jobs[str(job_id)] = {
-                "creator": ctx.author.id,
+                "creator": author.id,
                 "taker": None,
                 "salary": salary,
                 "description": description,
@@ -98,8 +102,8 @@ class Jobs(commands.Cog):
                 "image_url": image
             }
 
-        default_color = getattr(discord.Colour, color, await ctx.embed_colour()) if color is not None else await ctx.embed_colour()
-        
+        default_color = getattr(discord.Colour, color, await context.embed_colour()) if color is not None else await context.embed_colour()
+
         view = JobView(self, job_id)
 
         # Create and configure the embed
