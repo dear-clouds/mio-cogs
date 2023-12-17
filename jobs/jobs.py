@@ -202,9 +202,35 @@ class JobView(discord.ui.View):
             await interaction.response.send_message("You cannot untake a job you haven't taken.", ephemeral=True)
             return
 
-        self.taker = None
-        await self._update_job_status(interaction, "open")
+        guild = interaction.guild
+        async with self.jobs_cog.config.guild(guild).jobs() as jobs:
+            job = jobs.get(str(self.job_id))
+            if not job:
+                return
 
+            # Update the job status in the configuration
+            job["status"] = "open"
+            job["taker"] = None
+
+            # Post a message in the thread
+            thread = guild.get_thread(job["thread_id"])
+            if thread:
+                await thread.send(f"{interaction.user.mention} has untaken the job.")
+
+            # Update the embed
+            if self._message:
+                embed = self._message.embeds[0]
+                embed.set_field_at(1, name="Taken by", value="Not yet taken")
+                await self._message.edit(embed=embed)
+
+        # Re-enable the "Apply" button
+        self.children[0].disabled = False
+        await self._message.edit(view=self)
+
+        # Clear the taker
+        self.taker = None
+
+        # Acknowledge the interaction
         await interaction.response.send_message("You have untaken the job.", ephemeral=True)
 
     async def _update_job_status(self, interaction: discord.Interaction, status: str) -> None:
