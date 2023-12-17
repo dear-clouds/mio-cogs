@@ -67,7 +67,6 @@ class Jobs(commands.Cog):
     async def add_job(self, context, title: str, salary: int, description: str,
                   image: Optional[str] = None, color: Optional[str] = None):
         """Helper function to create a job"""
-        # Determine if context is from a slash command or text command
         if isinstance(context, commands.Context):
             author = context.author
             guild = context.guild
@@ -118,7 +117,7 @@ class Jobs(commands.Cog):
             embed.set_image(url=image)
 
         # Send the job message with the embed and view
-        job_channel_id = await self.config.guild(ctx.guild).job_channel_id()
+        job_channel_id = await self.config.guild(guild).job_channel_id()
         job_channel = self.bot.get_channel(job_channel_id)
         
         job_message = await job_channel.send(embed=embed, view=view)
@@ -126,13 +125,12 @@ class Jobs(commands.Cog):
 
         thread = await job_message.create_thread(name=f"{title}'s Discussion")
 
-        async with self.config.guild(ctx.guild).jobs() as jobs:
+        async with self.config.guild(guild).jobs() as jobs:
             job = jobs[str(job_id)]
             job["thread_id"] = thread.id
-            await job_message.add_reaction(await self.config.guild(ctx.guild).emoji())
             job["message_id"] = job_message.id
 
-        await ctx.send(f"Job created with ID {job_id}", ephemeral=True)
+        await context.send(f"Job created with ID {job_id}", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_component(self, ctx):
