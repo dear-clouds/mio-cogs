@@ -71,6 +71,7 @@ class Jobs(commands.Cog):
             await ctx.send("You do not have permission to create jobs", ephemeral=True)
             return
 
+        currency_name = await bank.get_currency_name(guild=message.guild)
         creator_balance = await bank.get_balance(ctx.author)
         if creator_balance < salary:
             await ctx.send("You do not have enough credits to post this job", ephemeral=True)
@@ -92,8 +93,7 @@ class Jobs(commands.Cog):
             }
 
         default_color = getattr(discord.Colour, color, await ctx.embed_colour()) if color is not None else await ctx.embed_colour()
-        currency_name = await bank.get_currency_name(guild=message.guild)
-
+        
         view = JobView(self, job_id)
 
         # Create and configure the embed
@@ -212,10 +212,11 @@ class Jobs(commands.Cog):
         async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
             await self._untake_job(interaction)
 
-        @discord.ui.button(label="Job Done", style=discord.ButtonStyle.green, custom_id=f"job_done_{self.job_id}")
-        async def job_done_button_click(self, interaction: discord.Interaction):
+        @discord.ui.button(label="Job Done", style=discord.ButtonStyle.green, custom_id="job_done")
+        async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
             job_id = self.job_id
             guild = interaction.guild
+
             async with self.jobs_cog.config.guild(guild).jobs() as jobs:
                 job = jobs.get(str(job_id))
                 if not job or job["status"] != "in_progress" or self.taker != interaction.user:
