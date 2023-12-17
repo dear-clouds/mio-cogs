@@ -174,7 +174,7 @@ class JobView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-    @discord.ui.button(label=f"Apply", style=discord.ButtonStyle.success, custom_id=f"apply_{self.job_id}")
+    @discord.ui.button(label=f"Apply", style=discord.ButtonStyle.success)
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._apply_for_job(interaction)
         
@@ -192,7 +192,7 @@ class JobView(discord.ui.View):
 
         await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
 
-    @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id=f"untake_{self.job_id}")
+    @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger)
     async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._untake_job(interaction)
         
@@ -253,7 +253,7 @@ class JobView(discord.ui.View):
                 embed.set_field_at(1, name="Taken by", value=taker_text)
                 await self._message.edit(embed=embed)
 
-    @discord.ui.button(label="Job Done", style=discord.ButtonStyle.green, custom_id=f"job_done_{self.job_id}")
+    @discord.ui.button(label="Job Done", style=discord.ButtonStyle.green)
     async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             job_id = int(button.custom_id.split('_')[-1])
