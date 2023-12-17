@@ -3,6 +3,7 @@ import plexapi
 import asyncio
 import aiohttp
 from redbot.core import commands, Config, app_commands
+from discord.ui import View, Select
 from plexapi.server import PlexServer
 from datetime import datetime
 from typing import Optional
