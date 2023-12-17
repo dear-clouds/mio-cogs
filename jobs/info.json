@@ -13,7 +13,5 @@
     "short": "Jobs management",
     "type": "COG",
     "end_user_data_statement": "This cog does not store any End User Data.",
-    "required_cogs": ["Economy"],
     "min_bot_version": "3.5.0"
   }
-  

@@ -92,6 +92,7 @@ class Jobs(commands.Cog):
             }
 
         default_color = getattr(discord.Colour, color, await ctx.embed_colour()) if color is not None else await ctx.embed_colour()
+        currency_name = await bank.get_currency_name(guild=message.guild)
 
         view = JobView(self, job_id)
 
@@ -101,7 +102,7 @@ class Jobs(commands.Cog):
             description=description,
             colour=default_color
         )
-        embed.add_field(name="Salary", value=str(salary))
+        embed.add_field(name="Salary", value=f"{salary} {currency_name}")
         embed.add_field(name="Taken by", value="Not yet taken")
         if image:
             embed.set_image(url=image)
@@ -213,9 +214,10 @@ class Jobs(commands.Cog):
 
         @discord.ui.button(label="Job Done", style=discord.ButtonStyle.green, custom_id=f"job_done_{self.job_id}")
         async def job_done_button_click(self, interaction: discord.Interaction):
+            job_id = self.job_id
             guild = interaction.guild
             async with self.jobs_cog.config.guild(guild).jobs() as jobs:
-                job = jobs.get(str(self.job_id))
+                job = jobs.get(str(job_id))
                 if not job or job["status"] != "in_progress" or self.taker != interaction.user:
                     await interaction.response.send_message("You cannot mark this job as done.", ephemeral=True)
                     return
