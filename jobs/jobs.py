@@ -290,7 +290,7 @@ class JobView(discord.ui.View):
                 embed = self._message.embeds[0]
                 embed.color = discord.Colour.green()
                 await thread.send(embed=embed)
-                await thread.send(f"{creator.mention} has marked the job as complete and credit has been sent to {taker.mention}.")
+                await thread.send(f"{creator.mention} has marked the job as complete and credits has been sent to {taker.mention}.")
 
         await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
 
@@ -313,9 +313,10 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
         super().__init__()
         self.jobs_cog = jobs_cog
 
-    title = discord.ui.TextInput(
+    job_title = discord.ui.TextInput(
         label="Job Title",
         placeholder="Enter the job title here...",
+        required=True,
         min_length=5,
         max_length=100
     )
@@ -323,11 +324,15 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
     salary = discord.ui.TextInput(
         label="Salary",
         placeholder="Enter the salary here...",
+        style=discord.TextStyle.short,
+        required=True,
     )
 
     description = discord.ui.TextInput(
         label="Description",
         placeholder="Enter the job description here...",
+        style=discord.TextStyle.paragraph,
+        required=True,
         min_length=10,
         max_length=2000
     )
@@ -347,7 +352,7 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
     )
 
     async def on_submit(self, interaction: discord.Interaction):
-        title = self.title.value
+        job_title = self.job_title.value
         salary_str = self.salary.value
         description = self.description.value
         image = self.image_url.value
@@ -375,6 +380,6 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
                 return
 
         # Use the add_job method to create a new job
-        await self.jobs_cog.add_job(interaction, title, salary, description, image, color_str)
+        await self.jobs_cog.add_job(interaction, job_title, salary, description, image, color_str)
 
-        await interaction.response.send_message(f"Job '{title}' created successfully!", ephemeral=True)
+        await interaction.response.send_message(f"Job '{job_title}' created successfully!", ephemeral=True)
