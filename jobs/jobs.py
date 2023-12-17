@@ -20,6 +20,13 @@ class Jobs(commands.Cog):
         """Manage jobs"""
         pass
 
+    @jobs.command(name='reset')
+    @commands.has_guild_permissions(administrator=True)
+    async def reset_config(self, ctx):
+        """Reset the job configuration for this server."""
+        await self.config.guild(ctx.guild).clear()
+        await ctx.send("Cog configuration has been reset for this server.")
+
     @jobs.command(name='channel')
     @commands.has_guild_permissions(administrator=True)
     async def set_channel(self, ctx, channel: discord.TextChannel):
@@ -29,22 +36,36 @@ class Jobs(commands.Cog):
 
     @jobs.command(name='posters')
     @commands.has_guild_permissions(administrator=True)
-    async def set_create_role(self, ctx, role: discord.Role):
-        """Add a role to the list of roles allowed to create jobs"""
+    async def set_create_roles(self, ctx, *roles: discord.Role):
+        """Add one or more roles to the list of roles allowed to create jobs"""
+        if not roles:
+            await ctx.send("Please mention one or more roles to add.")
+            return
+
         async with self.config.guild(ctx.guild).poster_roles() as poster_roles:
-            if role.id not in poster_roles:
-                poster_roles.append(role.id)
-        await ctx.send(f"Role {role.name} can now create jobs.")
+            for role in roles:
+                if role.id not in poster_roles:
+                    poster_roles.append(role.id)
+        
+        role_mentions = ", ".join(role.mention for role in roles)
+        await ctx.send(f"Roles {role_mentions} can now create jobs.")
 
     @jobs.command(name='seekers')
     @commands.has_guild_permissions(administrator=True)
-    async def set_take_role(self, ctx, role: discord.Role):
-        """Add a role to the list of roles allowed to take jobs"""
+    async def set_take_roles(self, ctx, *roles: discord.Role):
+        """Add one or more roles to the list of roles allowed to take jobs"""
+        if not roles:
+            await ctx.send("Please mention one or more roles to add.")
+            return
+
         async with self.config.guild(ctx.guild).seeker_roles() as seeker_roles:
-            if role.id not in seeker_roles:
-                seeker_roles.append(role.id)
-        await ctx.send(f"Role {role.name} can now take jobs.")
+            for role in roles:
+                if role.id not in seeker_roles:
+                    seeker_roles.append(role.id)
         
+        role_mentions = ", ".join(role.mention for role in roles)
+        await ctx.send(f"Roles {role_mentions} can now take jobs.")
+
     async def can_create(self, member):
         """Check if the member can create jobs."""
         async with self.config.guild(member.guild).poster_roles() as poster_roles:
@@ -68,7 +89,7 @@ class Jobs(commands.Cog):
         await self.add_job(ctx, title, salary, description, image, color)
 
     async def add_job(self, context, title: str, salary: int, description: str,
-                      image: Optional[str] = None, color: Optional[str] = None):
+                  image: Optional[str] = None, color: Optional[str] = None):
         """Helper function to create a job"""
         if isinstance(context, commands.Context):
             author = context.author
@@ -101,7 +122,8 @@ class Jobs(commands.Cog):
                 "description": description,
                 "status": "open",
                 "color": color,
-                "image_url": image
+                "image_url": image,
+                "completed": False
             }
 
         if color:
@@ -112,7 +134,7 @@ class Jobs(commands.Cog):
                 default_color = getattr(discord.Colour, color, await context.embed_colour())
         else:
             default_color = await context.embed_colour()
-    
+
         # Create and configure the embed
         embed = discord.Embed(
             title=f"{title}",
@@ -124,15 +146,23 @@ class Jobs(commands.Cog):
         if image:
             embed.set_image(url=image)
 
+        # Set the footer with poster's avatar and post date
+        embed.set_footer(
+            text=f"Job posted by {author.display_name} on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            icon_url=author.avatar_url,
+        )
+
         # Send the job message with the embed and view
         job_channel_id = await self.config.guild(guild).job_channel_id()
         job_channel = self.bot.get_channel(job_channel_id)
-        
+
         view = JobView(self, job_id)
         job_message = await job_channel.send(embed=embed, view=view)
         view._message = job_message
 
+        # Create the job's discussion thread and post the initial embed
         thread = await job_message.create_thread(name=f"{title}'s Discussion")
+        await thread.send(embed=embed)
 
         async with self.config.guild(guild).jobs() as jobs:
             job = jobs[str(job_id)]
@@ -243,18 +273,22 @@ class JobView(discord.ui.View):
             if taker:
                 await bank.deposit_credits(taker, job["salary"])
 
-            # Send a message in the job's thread
+            # Set the job as completed
+            job["completed"] = True
+
+            # Delete the initial message with buttons
+            try:
+                await self._message.delete()
+            except discord.NotFound:
+                pass
+
+            # Send a message in the job's thread with a green-colored embed
             thread = guild.get_thread(job["thread_id"])
             creator = guild.get_member(job["creator"])
             if thread:
+                embed = self._message.embeds[0]
+                embed.color = discord.Colour.green()
+                await thread.send(embed=embed)
                 await thread.send(f"{creator.mention} has marked the job as complete and credit has been sent to {taker.mention}.")
-
-        # Update the message embed to reflect completion
-        embed = self._message.embeds[0]
-        embed.color = discord.Colour.green()
-        for item in self.children:
-            if isinstance(item, discord.ui.Button):
-                item.disabled = True
-        await self._message.edit(embed=embed, view=self)
 
         await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
