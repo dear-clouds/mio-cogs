@@ -49,6 +49,20 @@ class Jobs(commands.Cog):
         async with self.config.guild(ctx.guild).roles() as roles:
             roles[str(role.id)] = "take"
         await ctx.send(f"Role {role.name} can now take jobs.")
+        
+    async def _can_create(self, member):
+        """Check if the member can create jobs."""
+        role_ids = [role.id for role in member.roles]
+        async with self.config.guild(member.guild).roles() as roles:
+            create_role_id = next((role_id for role_id in role_ids if roles.get(str(role_id)) == "create"), None)
+        return create_role_id is not None
+
+    async def _can_take(self, member):
+        """Check if the member can take jobs."""
+        role_ids = [role.id for role in member.roles]
+        async with self.config.guild(member.guild).roles() as roles:
+            take_role_id = next((role_id for role_id in role_ids if roles.get(str(role_id)) == "take"), None)
+        return take_role_id is not None
 
     @app_commands.command(name='job')
     async def add_job_slash(self, interaction: discord.Interaction, title: str, salary: int, description: str,
@@ -160,21 +174,6 @@ class JobView(discord.ui.View):
                 await self._message.edit(view=self)
             except discord.HTTPException:
                 pass
-
-    # Utility methods for permission checking and job status updates
-    async def _can_create(self, member):
-        role_ids = [role.id for role in member.roles]
-        async with self.config.guild(member.guild).roles() as roles:
-            create_role_id = next(
-                (role_id for role_id in role_ids if roles.get(str(role_id)) == "create"), None)
-        return create_role_id is not None
-
-    async def _can_take(self, member):
-        role_ids = [role.id for role in member.roles]
-        async with self.config.guild(member.guild).roles() as roles:
-            take_role_id = next(
-                (role_id for role_id in role_ids if roles.get(str(role_id)) == "take"), None)
-        return take_role_id is not None
 
     async def apply_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
