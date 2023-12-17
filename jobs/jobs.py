@@ -182,7 +182,7 @@ class JobView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-    @discord.ui.button(label="Apply", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Apply", emoji="💼", style=discord.ButtonStyle.primary)
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         
@@ -204,7 +204,6 @@ class JobView(discord.ui.View):
             if thread:
                 await thread.send(f"{taker.mention} has taken the job.")
 
-        try:
             # Update the message embed and disable the apply button
             embed = self._message.embeds[0]
             embed.set_field_at(1, name="Taken by", value=taker.mention)
@@ -214,11 +213,6 @@ class JobView(discord.ui.View):
             await self._message.edit(embed=embed, view=self)
 
             await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
-        except Exception as e:
-            # Log the error for debugging and acknowledge the interaction
-            print(f"Error in apply_button: {e}")
-            if not interaction.response.is_done():
-                await interaction.response.send_message("An error occurred.", ephemeral=True)
 
     @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger, disabled=True)
     async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -250,7 +244,7 @@ class JobView(discord.ui.View):
 
         await interaction.response.send_message("You have untaken the job.", ephemeral=True)
 
-    @discord.ui.button(label="Mark job as done", style=discord.ButtonStyle.green, disabled=True)
+    @discord.ui.button(label="Mark job as done", emoji="✔️", style=discord.ButtonStyle.green, disabled=True)
     async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
         taker = interaction.user
@@ -263,7 +257,11 @@ class JobView(discord.ui.View):
                 return
 
             job["status"] = "complete"
-            await bank.deposit_credits(discord.Object(id=job["taker"]), job["salary"])
+            taker_id = job["taker"]
+            taker = guild.get_member(taker_id)
+            # Pay the taker
+            if taker:
+                await bank.deposit_credits(taker, job["salary"])
 
             # Send a message in the job's thread
             thread = guild.get_thread(job["thread_id"])
