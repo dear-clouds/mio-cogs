@@ -135,7 +135,7 @@ class Jobs(commands.Cog):
     @commands.Cog.listener()
     async def on_component(self, ctx):
         if ctx.custom_id.startswith("job_done_"):
-            await self.job_done_button_click(ctx)
+            await self.job_done_button(ctx)
 
     async def _can_create(self, member):
         role_ids = [role.id for role in member.roles]
@@ -175,6 +175,10 @@ class JobView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
+    @discord.ui.button(label="Apply", style=discord.ButtonStyle.success)
+    async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await self._apply_for_job(interaction)
+        
     async def _apply_for_job(self, interaction: discord.Interaction) -> None:
         if self.taker is not None:
             await interaction.response.send_message("This job is already taken.", ephemeral=True)
@@ -183,8 +187,16 @@ class JobView(discord.ui.View):
         self.taker = interaction.user
         await self._update_job_status(interaction, "in_progress")
 
+        # Disable the "Apply" button
+        self.children[0].disabled = True
+        await self._message.edit(view=self)
+
         await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
 
+    @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger)
+    async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await self._untake_job(interaction)
+        
     async def _untake_job(self, interaction: discord.Interaction) -> None:
         if self.taker != interaction.user:
             await interaction.response.send_message("You cannot untake a job you haven't taken.", ephemeral=True)
@@ -216,21 +228,13 @@ class JobView(discord.ui.View):
                 embed.set_field_at(1, name="Taken by", value=taker_text)
                 await self._message.edit(embed=embed)
 
-    @discord.ui.button(label="Apply", style=discord.ButtonStyle.success)
-    async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        await self._apply_for_job(interaction)
-
-    @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger)
-    async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        await self._untake_job(interaction)
-
     async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = int(button.custom_id.split('_')[-1])
         guild = interaction.guild
 
         async with self.jobs_cog.config.guild(guild).jobs() as jobs:
             job = jobs.get(str(job_id))
-            if not job or job["status"] != "in_progress" or self.taker != interaction.user:
+            if not job or job["status"] != "in_progress" or job["taker"] != interaction.user.id:
                 await interaction.response.send_message("You cannot mark this job as done.", ephemeral=True)
                 return
 
