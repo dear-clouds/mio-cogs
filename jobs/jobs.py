@@ -160,12 +160,17 @@ class JobView(discord.ui.View):
         self.taker = None
         self.apply_emoji = apply_emoji
 
-        self.add_item(discord.ui.Button(label=f"{apply_emoji} Apply", style=discord.ButtonStyle.success, custom_id=f"apply_{job_id}"))
-        self.add_item(discord.ui.Button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id=f"untake_{job_id}"))
-        self.add_item(discord.ui.Button(label="Job Done", style=discord.ButtonStyle.green, custom_id=f"job_done_{job_id}"))
+        # Create the "Apply" button with the emoji
+        apply_button = discord.ui.Button(label=f"{self.apply_emoji} Apply", style=discord.ButtonStyle.primary, custom_id="apply_button")
+        apply_button.callback = self.apply_button
+        self.add_item(apply_button)
+
+        # Add other buttons
+        self.add_item(discord.ui.Button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id="untake_button"))
+        self.add_item(discord.ui.Button(label="Mark job as done", style=discord.ButtonStyle.green, custom_id="job_done_button"))
 
     async def on_timeout(self) -> None:
-        for item in self.children:
+        for item in this.children:
             if isinstance(item, discord.ui.Button):
                 item.disabled = True
         if self._message is not None:
@@ -174,7 +179,6 @@ class JobView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-    @discord.ui.button(label=f"Apply", style=discord.ButtonStyle.success)
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._apply_for_job(interaction)
         
@@ -192,7 +196,6 @@ class JobView(discord.ui.View):
 
         await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
 
-    @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger)
     async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._untake_job(interaction)
         
@@ -253,7 +256,6 @@ class JobView(discord.ui.View):
                 embed.set_field_at(1, name="Taken by", value=taker_text)
                 await self._message.edit(embed=embed)
 
-    @discord.ui.button(label="Job Done", style=discord.ButtonStyle.green)
     async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             job_id = int(button.custom_id.split('_')[-1])
