@@ -96,10 +96,14 @@ class Jobs(commands.Cog):
             author = context.author
             guild = context.guild
             job_id = context.message.id
+            default_color = await context.embed_colour()
+            send_method = context.send
         elif isinstance(context, discord.Interaction):
             author = context.user
             guild = context.guild
             job_id = context.id
+            default_color = await self.config.guild(guild).default_embed_color()
+            send_method = context.response.send_message
         else:
             raise TypeError("Invalid context type")
 
@@ -132,10 +136,8 @@ class Jobs(commands.Cog):
                 color_value = int(color[1:], 16)
                 default_color = discord.Colour(color_value)
             else:
-                default_color = getattr(discord.Colour, color, await context.embed_colour())
-        else:
-            default_color = await context.embed_colour()
-
+                default_color = getattr(discord.Colour, color, default_color)
+                
         # Create and configure the embed
         embed = discord.Embed(
             title=f"{title}",
@@ -170,7 +172,7 @@ class Jobs(commands.Cog):
             job["thread_id"] = thread.id
             job["message_id"] = job_message.id
 
-        await context.send(f"Job created with ID {job_id}", ephemeral=True)
+        await send_method(f"Job created with ID {job_id}", ephemeral=True)
 
 class JobView(discord.ui.View):
     def __init__(self, jobs_cog, job_id: int):
