@@ -164,7 +164,7 @@ class Jobs(commands.Cog):
         view._message = job_message
 
         # Create the job's discussion thread and post the initial embed
-        thread = await job_message.create_thread(name=f"{title}'s Discussion")
+        thread = await job_message.create_thread(name=f"{author.display_name}'s Job: {title}")
         await thread.send(embed=embed)
 
         async with self.config.guild(guild).jobs() as jobs:

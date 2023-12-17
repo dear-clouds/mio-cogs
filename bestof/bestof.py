@@ -49,14 +49,11 @@ class BestOf(commands.Cog):
     async def test(self, ctx):
         """Test the connection to the Plex server."""
         try:
-            loop = ctx.bot.loop
-
-            # Get the plex server URL and token outside of the lambda
             plex_server_url = await self.config.plex_server_url()
-            token = await self.config.token()
+            plex_server_auth_token = await self.config.plex_server_auth_token()
 
-            # Using run_in_executor to run the synchronous PlexServer call in a separate thread
-            self.plex = await loop.run_in_executor(None, lambda: PlexServer(plex_server_url, token))
+            loop = ctx.bot.loop
+            self.plex = await loop.run_in_executor(None, lambda: PlexServer(plex_server_url, plex_server_auth_token))
 
             await ctx.send("Connection to Plex server was successful.")
         except Exception as e:
