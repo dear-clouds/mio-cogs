@@ -173,11 +173,13 @@ class JobView(discord.ui.View):
         apply_button.callback = self.apply_button
         self.add_item(apply_button)
 
-        self.add_item(discord.ui.Button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id="untake_button"))
+        # Create and add the "Untake Job" button
+        untake_button = discord.ui.Button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id="untake_button")
         untake_button.callback = self.untake_button
         self.add_item(untake_button)
         
-        self.add_item(discord.ui.Button(label="Mark job as done", style=discord.ButtonStyle.green, custom_id="job_done_button"))
+        # Create and add the "Mark job as done" button
+        job_done_button = discord.ui.Button(label="Mark job as done", style=discord.ButtonStyle.green, custom_id="job_done_button")
         job_done_button.callback = self.job_done_button
         self.add_item(job_done_button)
 
