@@ -184,40 +184,41 @@ class JobView(discord.ui.View):
 
     async def apply_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
+        await interaction.followup.send("Test response")
         
-        job_id = self.job_id
-        taker = interaction.user
-        guild = interaction.guild
+        # job_id = self.job_id
+        # taker = interaction.user
+        # guild = interaction.guild
 
-        async with self.jobs_cog.config.guild(guild).jobs() as jobs:
-            job = jobs.get(str(job_id))
-            if not job or job["taker"]:
-                await interaction.response.send_message("This job has already been taken.", ephemeral=True)
-                return
+        # async with self.jobs_cog.config.guild(guild).jobs() as jobs:
+        #     job = jobs.get(str(job_id))
+        #     if not job or job["taker"]:
+        #         await interaction.response.send_message("This job has already been taken.", ephemeral=True)
+        #         return
 
-            job["taker"] = taker.id
-            job["status"] = "in_progress"
+        #     job["taker"] = taker.id
+        #     job["status"] = "in_progress"
 
-            # Send a message in the job's thread
-            thread = guild.get_thread(job["thread_id"])
-            if thread:
-                await thread.send(f"{taker.mention} has taken the job.")
+        #     # Send a message in the job's thread
+        #     thread = guild.get_thread(job["thread_id"])
+        #     if thread:
+        #         await thread.send(f"{taker.mention} has taken the job.")
 
-        try:
-            # Update the message embed and disable the apply button
-            embed = self._message.embeds[0]
-            embed.set_field_at(1, name="Taken by", value=taker.mention)
-            self.children[0].disabled = True  # Apply button
-            self.children[1].disabled = False  # Untake button
-            self.children[2].disabled = False  # Job done button
-            await self._message.edit(embed=embed, view=self)
+        # try:
+        #     # Update the message embed and disable the apply button
+        #     embed = self._message.embeds[0]
+        #     embed.set_field_at(1, name="Taken by", value=taker.mention)
+        #     self.children[0].disabled = True  # Apply button
+        #     self.children[1].disabled = False  # Untake button
+        #     self.children[2].disabled = False  # Job done button
+        #     await self._message.edit(embed=embed, view=self)
 
-            await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
-        except Exception as e:
-            # Log the error for debugging and acknowledge the interaction
-            print(f"Error in apply_button_callback: {e}")
-            if not interaction.response.is_done():
-                await interaction.response.send_message("An error occurred.", ephemeral=True)
+        #     await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
+        # except Exception as e:
+        #     # Log the error for debugging and acknowledge the interaction
+        #     print(f"Error in apply_button_callback: {e}")
+        #     if not interaction.response.is_done():
+        #         await interaction.response.send_message("An error occurred.", ephemeral=True)
 
     async def untake_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
