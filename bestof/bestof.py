@@ -134,7 +134,7 @@ class BestOf(commands.Cog):
 
         # Ensure the Plex server has been initialized
         if not self.plex:
-            await ctx.send("The Plex server has not been configured.")
+            await interaction.followup.send("The Plex server has not been configured.", ephemeral=True)
             return
 
         # Find the library with the given name
@@ -145,7 +145,7 @@ class BestOf(commands.Cog):
                 library = lib
                 break
         if not library:
-            await ctx.send("Library not found.")
+            await interaction.followup.send("Library not found.", ephemeral=True)
             return
 
         # Find the item with the given title
@@ -161,7 +161,7 @@ class BestOf(commands.Cog):
                     item = movie
                     break
         if not item:
-            await ctx.send("Item not found.")
+            await interaction.followup.send("Item not found.", ephemeral=True)
             return
 
         # Confirm with the user that the correct item was found
@@ -171,36 +171,36 @@ class BestOf(commands.Cog):
             description=item.summary
         )
         embed.set_image(url=item.thumb)
-        msg = await ctx.send(embed=embed)
+        msg = await interaction.followup.send(embed=embed)
         await msg.add_reaction("✅")
         await msg.add_reaction("❌")
 
         def check(reaction, user):
-            return user == ctx.author and reaction.message.id == msg.id and str(reaction.emoji) in ["✅", "❌"]
+            return user == interaction.user and reaction.message.id == msg.id and str(reaction.emoji) in ["✅", "❌"]
 
         try:
             reaction, _ = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
             if str(reaction.emoji) == "❌":
-                await ctx.send("Vote canceled.")
+                await interaction.followup.send("Vote canceled.", ephemeral=True)
                 return
         except asyncio.TimeoutError:
-            await ctx.send("No response received. Vote canceled.")
+            await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
             return
 
         # Check if the user has already voted for the given title in the given library
-        user_votes = await self.config.user(ctx.author).votes()
+        user_votes = await self.config.user(interaction.user).votes()
         if library_name not in user_votes:
             user_votes[library_name] = {}
 
         if title in user_votes[library_name]:
-            await ctx.send("You have already voted for a title in this library.")
+            await interaction.followup.send("You have already voted for a title in this library.", ephemeral=True)
             return
 
         # Add the vote to the user's data
         user_votes[library_name][title] = item.rating
-        await self.config.user(ctx.author).votes.set(user_votes)
+        await self.config.user(interaction.user).votes.set(user_votes)
 
-        await ctx.send(f"Vote for `{item.title}` recorded.")
+        await interaction.followup.send(f"Vote for `{item.title}` recorded.", ephemeral=True)
 
     async def get_top_movies(self):
         # Get data for all users who voted during January
