@@ -71,7 +71,7 @@ class Jobs(commands.Cog):
             await ctx.send("You do not have permission to create jobs", ephemeral=True)
             return
 
-        currency_name = await bank.get_currency_name(guild=message.guild)
+        currency_name = await bank.get_currency_name(guild=ctx.guild)
         creator_balance = await bank.get_balance(ctx.author)
         if creator_balance < salary:
             await ctx.send("You do not have enough credits to post this job", ephemeral=True)
@@ -108,11 +108,12 @@ class Jobs(commands.Cog):
             embed.set_image(url=image)
 
         # Send the job message with the embed and view
+        job_channel_id = await self.config.guild(ctx.guild).job_channel_id()
+        job_channel = self.bot.get_channel(job_channel_id)
+        
         job_message = await job_channel.send(embed=embed, view=view)
         view._message = job_message  # Link the message to the view for later editing
 
-        job_channel_id = await self.config.guild(ctx.guild).job_channel_id()
-        job_channel = self.bot.get_channel(job_channel_id)
         thread = await job_message.create_thread(name=f"{title}'s Discussion")
 
         async with self.config.guild(ctx.guild).jobs() as jobs:
@@ -146,12 +147,15 @@ class Jobs(commands.Cog):
         await self.bot.load_application_commands()
 
     class JobView(discord.ui.View):
-        def __init__(self, jobs_cog, job_id: int) -> None:
+        def __init__(self, jobs_cog, job_id: int):
             super().__init__(timeout=180)
             self.jobs_cog = jobs_cog
             self.job_id = job_id
             self._message: discord.Message = None
-            self.taker = None  # To keep track of the user who has taken the job
+            self.taker = None
+
+            # Dynamically add the "Job Done" button with a specific custom_id
+            self.add_item(discord.ui.Button(label="Job Done", style=discord.ButtonStyle.green, custom_id=f"job_done_{self.job_id}"))
 
         async def on_timeout(self) -> None:
             for item in self.children:
@@ -212,9 +216,8 @@ class Jobs(commands.Cog):
         async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
             await self._untake_job(interaction)
 
-        @discord.ui.button(label="Job Done", style=discord.ButtonStyle.green, custom_id="job_done")
         async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-            job_id = self.job_id
+            job_id = int(button.custom_id.split('_')[-1])
             guild = interaction.guild
 
             async with self.jobs_cog.config.guild(guild).jobs() as jobs:
@@ -228,7 +231,12 @@ class Jobs(commands.Cog):
 
                 thread = guild.get_thread(job["thread_id"])
                 if thread:
-                    await thread.send("Job has been marked as complete.")
+                    # Fetch the creator as a discord.Member object
+                    creator = guild.get_member(job["creator"])
+                    if creator and self.taker:
+                        await thread.send(f"{creator.mention} has marked the job as complete and credit has been sent to {self.taker.mention}.")
+                    else:
+                        await thread.send("Job has been marked as complete and credit has been sent.")
 
                 if self._message:
                     embed = self._message.embeds[0]
@@ -236,7 +244,3 @@ class Jobs(commands.Cog):
                     await self._message.edit(embed=embed, view=self)
 
                 await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
-
-        @discord.ui.button(label="Job Done", style=discord.ButtonStyle.green, custom_id=f"job_done_{self.job_id}")
-        async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-            await self.job_done_button_click(interaction)
