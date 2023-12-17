@@ -231,56 +231,88 @@ class BestOf(commands.Cog):
         return None
 
     @commands.command()
-    async def topvotes(self, ctx, years: int = 1):
-        """Shows the top titles for the past years."""
-        if years < 1:
-            await ctx.send("Please enter a positive integer for the number of years.")
-            return
+    async def topvotes(self, ctx, start_year: int = None):
+        current_year = datetime.today().year
+        year = start_year if start_year and start_year < current_year else current_year - 1
 
-        # Get data for all users who voted in the past years
         user_data = await self.config.all_users()
+        votes = self.process_votes(user_data)
+
+        embed, data_exists = self.create_topvotes_embed(votes, year)
+        message = await ctx.send(embed=embed)
+
+        # Add navigation reactions if applicable
+        if data_exists['previous']:
+            await message.add_reaction('⬅️')
+        if data_exists['next']:
+            await message.add_reaction('➡️')
+
+        # Reaction check
+        def check(reaction, user):
+            return user == ctx.author and str(reaction.emoji) in ['⬅️', '➡️'] and reaction.message.id == message.id
+
+        # Reaction listener
+        while True:
+            try:
+                reaction, user = await self.bot.wait_for('reaction_add', timeout=60.0, check=check)
+                if str(reaction.emoji) == '⬅️' and data_exists['previous']:
+                    year -= 1
+                elif str(reaction.emoji) == '➡️' and data_exists['next']:
+                    year += 1
+
+                embed, data_exists = self.create_topvotes_embed(votes, year)
+                await message.edit(embed=embed)
+
+                # Update reactions
+                if data_exists['previous']:
+                    await message.add_reaction('⬅️')
+                else:
+                    await message.clear_reaction('⬅️')
+
+                if data_exists['next']:
+                    await message.add_reaction('➡️')
+                else:
+                    await message.clear_reaction('➡️')
+
+                await message.remove_reaction(reaction.emoji, user)
+
+            except asyncio.TimeoutError:
+                break
+        
+    def create_topvotes_embed(self, votes, year):
+        embed = discord.Embed(
+            title=f"Top Titles for {year}",
+            color=discord.Color.blurple()
+        )
+
+        data_exists_for_adjacent_years = {'previous': False, 'next': False}
+        current_year = datetime.today().year
+
+        for library_name, movies in votes.items():
+            if year in movies:
+                sorted_movies = sorted(movies[year], key=lambda x: x[1], reverse=True)  # Sort by rating
+                movie_str = "\n".join(f"{movie[0]}: {movie[1]:.1f}" for movie in sorted_movies)
+                embed.add_field(name=library_name, value=movie_str, inline=False)
+
+                # Check for adjacent years
+                if year - 1 in movies:
+                    data_exists_for_adjacent_years['previous'] = True
+                if year + 1 in movies and year + 1 < current_year:
+                    data_exists_for_adjacent_years['next'] = True
+
+        return embed, data_exists_for_adjacent_years
+
+    def process_votes(self, user_data):
         votes = {}
         for uid, data in user_data.items():
             if 'votes' in data:
-                # Check if 'last_vote' exists in data
-                if 'last_vote' in data:
-                    last_vote_date = datetime.strptime(data['last_vote'], '%Y-%m-%d %H:%M:%S.%f')
-                    if last_vote_date.year >= datetime.today().year - years:
-                        for library_name, movies in data['votes'].items():
-                            if library_name not in votes:
-                                votes[library_name] = {}
-                            for title, rating in movies.items():
-                                if title not in votes[library_name]:
-                                    votes[library_name][title] = []
-                                votes[library_name][title].append(rating)
-
-        # Calculate the average rating for each title in each library
-        avg_ratings = {}
-        for library_name, movies in votes.items():
-            for title, ratings in movies.items():
-                if library_name not in avg_ratings:
-                    avg_ratings[library_name] = {}
-                avg_ratings[library_name][title] = sum(ratings) / len(ratings)
-
-        # Sort the titles by average rating and return the top 3 for each library
-        top_movies = {}
-        for library_name, movies in avg_ratings.items():
-            top_movies[library_name] = sorted(movies, key=movies.get, reverse=True)[:3]
-
-        # Create and send an embed with the top titles for each library
-        current_year = datetime.today().year
-        embed = discord.Embed(
-            title=f"Top Titles for {current_year - years + 1} - {current_year}", color=discord.Color.blurple())
-        for library_name, movies in top_movies.items():
-            library = self.plex.library.section(library_name)
-            movie_str = ""
-            for movie_title in movies:
-                movie = library.get(movie_title)
-                movie_str += f"\n[{movie_title}]({movie.guid}): {avg_ratings[library_name][movie_title]:.1f}"
-            if movie_str:
-                embed.add_field(name=library_name, value=movie_str, inline=False)
-
-        await ctx.send(embed=embed)
+                for library_name, movie_title, rating, year in data['votes']:
+                    if year not in votes:
+                        votes[year] = {}
+                    if library_name not in votes[year]:
+                        votes[year][library_name] = []
+                    votes[year][library_name].append((movie_title, rating))
+        return votes
 
     @commands.command()
     @commands.is_owner()
