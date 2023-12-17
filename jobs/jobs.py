@@ -3,7 +3,6 @@ from redbot.core import commands, Config, bank, app_commands
 from discord import Embed, Colour, Button, ButtonStyle
 from typing import Optional
 
-
 class Jobs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -103,7 +102,9 @@ class Jobs(commands.Cog):
 
         default_color = getattr(discord.Colour, color, await context.embed_colour()) if color is not None else await context.embed_colour()
 
-        view = JobView(self, job_id)
+        apply_emoji = await self.config.guild(guild).emoji()
+
+        view = JobView(self, job_id, apply_emoji)
 
         # Create and configure the embed
         embed = discord.Embed(
@@ -155,15 +156,18 @@ class Jobs(commands.Cog):
         await self.bot.load_application_commands()
 
 class JobView(discord.ui.View):
-    def __init__(self, jobs_cog, job_id: int):
+    def __init__(self, jobs_cog, job_id: int, apply_emoji: str):
         super().__init__(timeout=180)
         self.jobs_cog = jobs_cog
         self.job_id = job_id
-        self._message: discord.Message = None
+        self._message = None
         self.taker = None
+        self.apply_emoji = apply_emoji
 
-        # Dynamically add the "Job Done" button with a specific custom_id
-        self.add_item(discord.ui.Button(label="Job Done", style=discord.ButtonStyle.green, custom_id=f"job_done_{self.job_id}"))
+        # Add buttons with the emoji for the "Apply" button
+        self.add_item(discord.ui.Button(label=f"{apply_emoji} Apply", style=discord.ButtonStyle.success, custom_id=f"apply_{job_id}"))
+        self.add_item(discord.ui.Button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id=f"untake_{job_id}"))
+        self.add_item(discord.ui.Button(label="Job Done", style=discord.ButtonStyle.green, custom_id=f"job_done_{job_id}"))
 
     async def on_timeout(self) -> None:
         for item in self.children:
@@ -175,7 +179,6 @@ class JobView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-    @discord.ui.button(label="Apply", style=discord.ButtonStyle.success)
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await self._apply_for_job(interaction)
         
@@ -193,7 +196,6 @@ class JobView(discord.ui.View):
 
         await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
 
-    @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger)
     async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await self._untake_job(interaction)
         
@@ -255,30 +257,37 @@ class JobView(discord.ui.View):
                 await self._message.edit(embed=embed)
 
     async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        job_id = int(button.custom_id.split('_')[-1])
-        guild = interaction.guild
+        try:
+            job_id = int(button.custom_id.split('_')[-1])
+            guild = interaction.guild
 
-        async with self.jobs_cog.config.guild(guild).jobs() as jobs:
-            job = jobs.get(str(job_id))
-            if not job or job["status"] != "in_progress" or job["taker"] != interaction.user.id:
-                await interaction.response.send_message("You cannot mark this job as done.", ephemeral=True)
-                return
+            async with self.jobs_cog.config.guild(guild).jobs() as jobs:
+                job = jobs.get(str(job_id))
+                if not job or job["status"] != "in_progress" or job["taker"] != interaction.user.id:
+                    await interaction.response.send_message("You cannot mark this job as done.", ephemeral=True)
+                    return
 
-            job["status"] = "complete"
-            await bank.deposit_credits(self.taker, job["salary"])
+                job["status"] = "complete"
+                await bank.deposit_credits(self.taker, job["salary"])
 
-            thread = guild.get_thread(job["thread_id"])
-            if thread:
-                # Fetch the creator as a discord.Member object
-                creator = guild.get_member(job["creator"])
-                if creator and self.taker:
-                    await thread.send(f"{creator.mention} has marked the job as complete and credit has been sent to {self.taker.mention}.")
-                else:
-                    await thread.send("Job has been marked as complete and credit has been sent.")
+                thread = guild.get_thread(job["thread_id"])
+                if thread:
+                    creator = guild.get_member(job["creator"])
+                    if creator and self.taker:
+                        await thread.send(f"{creator.mention} has marked the job as complete and credit has been sent to {self.taker.mention}.")
+                    else:
+                        await thread.send("Job has been marked as complete and credit has been sent.")
 
-            if self._message:
-                embed = self._message.embeds[0]
-                embed.color = discord.Colour.green()
-                await self._message.edit(embed=embed, view=self)
+                if self._message:
+                    embed = self._message.embeds[0]
+                    embed.color = discord.Colour.green()
+                    await self._message.edit(embed=embed, view=self)
 
-            await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
+                await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
+        except Exception as e:
+            # Log the error for debugging
+            print(f"Error in job_done_button: {e}")
+            # Acknowledge the interaction in case of error
+            if not interaction.response.is_done():
+                await interaction.response.send_message("An error occurred.", ephemeral=True)
+
