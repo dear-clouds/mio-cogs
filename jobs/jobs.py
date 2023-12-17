@@ -294,67 +294,83 @@ class JobView(discord.ui.View):
 
         await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return await self.jobs_cog.can_create(interaction.user)
+
     @discord.ui.button(label="Post a job", emoji="➕", style=discord.ButtonStyle.secondary)
-    async def post_job_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        await self.job_post_modal.send(interaction.user)
+    async def post_job_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = JobPostModal(self.jobs_cog)
+        await interaction.response.send_modal(modal)
             
-class JobPostModal(discord.ui.View):
+class JobPostModal(discord.ui.Modal):
     def __init__(self, jobs_cog):
-        super().__init__(timeout=None)
+        super().__init__(title="Post a New Job")
         self.jobs_cog = jobs_cog
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger)
-    async def cancel_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        # Cancel the job posting
-        await interaction.response.edit_message(view=None)
+    title = discord.ui.TextInput(
+        label="Job Title",
+        placeholder="Enter the job title here...",
+        min_length=5,
+        max_length=100
+    )
 
-    async def send(self, user: discord.User):
-        # Create and send the job posting modal
-        embed = discord.Embed(
-            title="Post a Job",
-            description="Fill out the information below to post a new job.",
-            color=discord.Color.blurple()
-        )
-        view = self
-        view.clear_items()
+    salary = discord.ui.TextInput(
+        label="Salary",
+        placeholder="Enter the salary here...",
+        style=discord.InputTextStyle.short
+    )
 
-        title_input = discord.ui.TextInput(
-            placeholder="Enter job title...",
-            min_length=5,
-            max_length=100,
-            clearable=True
-        )
-        salary_input = discord.ui.NumberInput(
-            placeholder="Enter job salary...",
-            min_value=1,
-            max_value=1000000,
-            clearable=True
-        )
-        description_input = discord.ui.TextInput(
-            placeholder="Enter job description...",
-            min_length=10,
-            max_length=2000,
-            clearable=True
-        )
+    description = discord.ui.TextInput(
+        label="Description",
+        placeholder="Enter the job description here...",
+        style=discord.InputTextStyle.paragraph,
+        min_length=10,
+        max_length=2000
+    )
 
-        @title_input.change
-        async def on_title_change(inp, _: str):
-            embed.set_footer(text=f"Job title: {inp}")
-            await view.message.edit(embed=embed, view=view)
+    image_url = discord.ui.TextInput(
+        label="Image URL (optional)",
+        placeholder="Enter an image URL...",
+        required=False,  # This field is optional
+        max_length=2048  # Maximum length for URLs
+    )
 
-        @salary_input.change
-        async def on_salary_change(inp, _: int):
-            embed.set_footer(text=f"Job salary: {inp} credits")
-            await view.message.edit(embed=embed, view=view)
+    embed_color = discord.ui.TextInput(
+        label="Embed Color (optional)",
+        placeholder="Enter a hexa color code...",
+        required=False,  # This field is optional
+        max_length=7  # Length of a hex color code including #
+    )
 
-        @description_input.change
-        async def on_description_change(inp, _: str):
-            embed.set_footer(text=f"Job description: {inp}")
-            await view.message.edit(embed=embed, view=view)
+    async def on_submit(self, interaction: discord.Interaction):
+        title = self.title.value
+        salary_str = self.salary.value
+        description = self.description.value
+        image = self.image_url.value
+        color_str = self.embed_color.value
 
-        self.add_item(title_input)
-        self.add_item(salary_input)
-        self.add_item(description_input)
+        # Validate salary
+        try:
+            salary = int(salary_str)
+            if salary <= 0:
+                raise ValueError
+        except ValueError:
+            await interaction.response.send_message("Invalid salary. Please enter a positive number.", ephemeral=True)
+            return
 
-        interaction = await user.send(embed=embed, view=self)
-        await interaction.reply(type=discord.ResponseType.deferred_message_update)
+        # Validate color, if provided
+        color = None
+        if color_str:
+            if not color_str.startswith('#') or len(color_str) != 7:
+                await interaction.response.send_message("Invalid color code. Please enter a hex code like #FF5733.", ephemeral=True)
+                return
+            try:
+                color = int(color_str[1:], 16)
+            except ValueError:
+                await interaction.response.send_message("Invalid color code. Please enter a valid hex code.", ephemeral=True)
+                return
+
+        # Use the add_job method to create a new job
+        await self.jobs_cog.add_job(interaction, title, salary, description, image, color_str)
+
+        await interaction.response.send_message(f"Job '{title}' created successfully!", ephemeral=True)
