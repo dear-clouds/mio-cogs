@@ -149,7 +149,7 @@ class Jobs(commands.Cog):
 
         # Set the footer with poster's avatar and post date
         embed.set_footer(
-            text=f"Job posted by {author.display_name} on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            text=f"Job posted by {author.display_name} on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             icon_url=author.avatar_url,
         )
 
