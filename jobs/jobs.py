@@ -53,10 +53,10 @@ class Jobs(commands.Cog):
         await ctx.send(f"Role {role.name} can now take jobs.")
 
     @app_commands.command(name='job')
-    async def add_job_slash(self, ctx: commands.Context, title: str, salary: int, description: str,
+    async def add_job_slash(self, interaction: discord.Interaction, title: str, salary: int, description: str,
                             image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
-        await self.add_job(ctx, title, salary, description, image, color)
+        await self.add_job(interaction, title, salary, description, image, color)
 
     @jobs.command(name='add')
     async def add_job_message(self, ctx: commands.Context, title: str, salary: int, description: str,
@@ -67,7 +67,13 @@ class Jobs(commands.Cog):
     async def add_job(self, ctx: commands.Context, title: str, salary: int, description: str,
                       image: Optional[str] = None, color: Optional[str] = None):
         """Helper function to create a job"""
-        if not await self._can_create(ctx.author):
+        # Replace ctx.author with ctx.user for interactions
+        if isinstance(ctx, discord.Interaction):
+            author = ctx.user
+        else:
+            author = ctx.author
+
+        if not await self._can_create(author):
             await ctx.send("You do not have permission to create jobs", ephemeral=True)
             return
 
