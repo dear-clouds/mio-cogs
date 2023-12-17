@@ -174,7 +174,7 @@ class JobView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-    @discord.ui.button(label=f"{apply_emoji} Apply", style=discord.ButtonStyle.success, custom_id=f"apply_{self.job_id}")
+    @discord.ui.button(label=f"Apply", style=discord.ButtonStyle.success, custom_id=f"apply_{self.job_id}")
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._apply_for_job(interaction)
         
