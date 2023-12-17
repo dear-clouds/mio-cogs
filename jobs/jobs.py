@@ -134,14 +134,6 @@ class Jobs(commands.Cog):
         await context.send(f"Job created with ID {job_id}", ephemeral=True)
 
     @commands.Cog.listener()
-    async def on_component(self, ctx):
-        if ctx.custom_id.startswith("job_done_"):
-            await self.job_done_button(ctx)
-        if ctx.custom_id.startswith("untake_"):
-            await self.untake_button(ctx)
-        if ctx.custom_id.startswith("apply_"):
-            await self.apply_button(ctx)
-            
     async def _can_create(self, member):
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
@@ -168,20 +160,10 @@ class JobView(discord.ui.View):
         self.taker = None
         self.apply_emoji = apply_emoji
 
-        # Create the "Apply" button with the emoji
-        apply_button = discord.ui.Button(label=f"{self.apply_emoji} Apply", style=discord.ButtonStyle.primary, custom_id="apply_button")
-        apply_button.callback = self.apply_button
-        self.add_item(apply_button)
-
-        # Create and add the "Untake Job" button
-        untake_button = discord.ui.Button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id="untake_button")
-        untake_button.callback = self.untake_button
-        self.add_item(untake_button)
-        
-        # Create and add the "Mark job as done" button
-        job_done_button = discord.ui.Button(label="Mark job as done", style=discord.ButtonStyle.green, custom_id="job_done_button")
-        job_done_button.callback = self.job_done_button
-        self.add_item(job_done_button)
+        # Add buttons with unique custom IDs and callbacks
+        self.add_item(discord.ui.Button(label=f"{self.apply_emoji} Apply", style=discord.ButtonStyle.primary, custom_id=f"apply_{job_id}", callback=self.apply_button))
+        self.add_item(discord.ui.Button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id=f"untake_{job_id}", callback=self.untake_button))
+        self.add_item(discord.ui.Button(label="Mark job as done", style=discord.ButtonStyle.green, custom_id=f"job_done_{job_id}", callback=self.job_done_button))
 
     async def on_timeout(self) -> None:
         for item in this.children:
