@@ -317,13 +317,11 @@ class JobPostModal(discord.ui.Modal):
     salary = discord.ui.TextInput(
         label="Salary",
         placeholder="Enter the salary here...",
-        style=discord.InputTextStyle.short
     )
 
     description = discord.ui.TextInput(
         label="Description",
         placeholder="Enter the job description here...",
-        style=discord.InputTextStyle.paragraph,
         min_length=10,
         max_length=2000
     )
