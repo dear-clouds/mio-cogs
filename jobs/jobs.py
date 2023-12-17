@@ -50,14 +50,14 @@ class Jobs(commands.Cog):
             roles[str(role.id)] = "take"
         await ctx.send(f"Role {role.name} can now take jobs.")
         
-    async def _can_create(self, member):
+    async def can_create(self, member):
         """Check if the member can create jobs."""
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
             create_role_id = next((role_id for role_id in role_ids if roles.get(str(role_id)) == "create"), None)
         return create_role_id is not None
 
-    async def _can_take(self, member):
+    async def can_take(self, member):
         """Check if the member can take jobs."""
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
@@ -90,7 +90,7 @@ class Jobs(commands.Cog):
         else:
             raise TypeError("Invalid context type")
 
-        if not await self._can_create(author):
+        if not await self.can_create(author):
             await context.send("You do not have permission to create jobs", ephemeral=True)
             return
 
@@ -160,9 +160,17 @@ class JobView(discord.ui.View):
         self._message = None
         self.apply_emoji = apply_emoji
 
+        # Create the "Apply" button with the emoji
+        self.add_item(discord.ui.Button(label=f"{self.apply_emoji} Apply", style=discord.ButtonStyle.primary, custom_id=f"apply_{job_id}"))
+
+        # Create and add the "Untake Job" and "Mark job as done" buttons
+        # They will be enabled or disabled based on job status
+        self.add_item(discord.ui.Button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id=f"untake_{job_id}", disabled=True))
+        self.add_item(discord.ui.Button(label="Mark job as done", style=discord.ButtonStyle.green, custom_id=f"job_done_{job_id}", disabled=True))
+
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         # Check if the user interacting with the button has the appropriate role
-        return await self.jobs_cog._can_take(interaction.user)
+        return await self.jobs_cog.can_take(interaction.user)
 
     async def on_timeout(self) -> None:
         for item in self.children:
@@ -174,8 +182,7 @@ class JobView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-    @discord.ui.button(label="Apply", style=discord.ButtonStyle.primary)
-    async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def apply_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         
         job_id = self.job_id
@@ -208,12 +215,11 @@ class JobView(discord.ui.View):
             await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
         except Exception as e:
             # Log the error for debugging and acknowledge the interaction
-            print(f"Error in apply_button: {e}")
+            print(f"Error in apply_button_callback: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message("An error occurred.", ephemeral=True)
 
-    @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger)
-    async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def untake_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
         taker = interaction.user
         guild = interaction.guild
@@ -242,8 +248,7 @@ class JobView(discord.ui.View):
 
         await interaction.response.send_message("You have untaken the job.", ephemeral=True)
 
-    @discord.ui.button(label="Mark job as done", style=discord.ButtonStyle.green)
-    async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def job_done_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
         taker = interaction.user
         guild = interaction.guild
@@ -272,3 +277,14 @@ class JobView(discord.ui.View):
         await self._message.edit(embed=embed, view=self)
 
         await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
+
+    # Add the callback methods to their respective buttons
+    def add_item(self, item):
+        if isinstance(item, discord.ui.Button):
+            if item.custom_id.startswith("apply_"):
+                item.callback = self.apply_button_callback
+            elif item.custom_id.startswith("untake_"):
+                item.callback = self.untake_button_callback
+            elif item.custom_id.startswith("job_done_"):
+                item.callback = self.job_done_button_callback
+        super().add_item(item)
