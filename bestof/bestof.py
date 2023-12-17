@@ -15,8 +15,7 @@ class BestOf(commands.Cog):
         self.config.register_global(
             plex_server_url=None,
             plex_server_auth_token=None,
-            allowed_libraries=[],
-            voting_month=1
+            allowed_libraries=[]
         )
         self.config.register_user(votes={})
         self.plex = None
@@ -59,15 +58,6 @@ class BestOf(commands.Cog):
             await ctx.send("Connection to Plex server was successful.")
         except Exception as e:
             await ctx.send(f"Failed to connect to Plex server: ```{e}```")
-
-    @bestof.command(name="votingmonth")
-    async def set_votingmonth(self, ctx, month: int):
-        """Sets the month when the voting is allowed."""
-        if 1 <= month <= 12:
-            await self.config.voting_month.set(month)
-            await ctx.send(f"Voting month updated to {month}.")
-        else:
-            await ctx.send("Invalid month. Please enter a value between 1 and 12.")
             
     @bestof.command(name="poster")
     async def set_poster(self, ctx, url: str):
@@ -126,12 +116,6 @@ class BestOf(commands.Cog):
         await ctx.send("Select a Library to Vote In", view=view)
 
     async def add_vote(self, interaction, library_name: str, title: str, is_tv_show: bool = False):
-        voting_month = await self.config.voting_month()
-        current_month = datetime.today().month
-        if current_month != voting_month:
-            await interaction.response.send_message(f"Voting is only allowed during month {voting_month}.", ephemeral=True)
-            return
-
         # Ensure the Plex server has been initialized
         if not self.plex:
             await interaction.followup.send("The Plex server has not been configured.", ephemeral=True)
@@ -164,23 +148,27 @@ class BestOf(commands.Cog):
             await interaction.followup.send("Item not found.", ephemeral=True)
             return
 
-        # Confirm with the user that the correct item was found
-        # Generate Plex Web URL for the title
-        plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
+        # Check the year of the title
+        current_year = datetime.now().year
+        if item.year is None or item.year >= current_year:
+            await interaction.followup.send(f"You can only vote for titles from previous years, not from {current_year}.", ephemeral=True)
+            return
 
-        # Generate Poster URL
+        # Confirm with the user that the correct item was found
+        plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
         poster_url = self.plex.url(item.thumb, includeToken=True) if item.thumb else None
+        title_year = item.year if item.year else "Unknown Year"
 
         # Confirm with the user that the correct item was found
         embed = discord.Embed(
             title=item.title,
             url=plex_web_url,
-            description=item.summary
+            description=f"{item.summary}\n\nYou will be voting for this title for the year {title_year}."
         )
 
         # Add poster URL if available
         if poster_url:
-            embed.set_image(url=poster_url)
+            embed.set_thumbnail(url=poster_url)
 
         msg = await interaction.followup.send(embed=embed)
         await msg.add_reaction("✅")
@@ -192,7 +180,7 @@ class BestOf(commands.Cog):
         try:
             reaction, _ = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
             if str(reaction.emoji) == "❌":
-                await interaction.followup.send("Vote canceled.", ephemeral=True)
+                await interaction.followup.send("Vote canceled. Make sure it's the exact same title on the Plex server.", ephemeral=True)
                 return
         except asyncio.TimeoutError:
             await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
@@ -244,7 +232,7 @@ class BestOf(commands.Cog):
 
     @commands.command()
     async def topvotes(self, ctx, years: int = 1):
-        """Shows the top titles for the past years. Defaults to 1 year."""
+        """Shows the top titles for the past years."""
         if years < 1:
             await ctx.send("Please enter a positive integer for the number of years.")
             return
@@ -254,16 +242,17 @@ class BestOf(commands.Cog):
         votes = {}
         for uid, data in user_data.items():
             if 'votes' in data:
-                for library_name, movies in data['votes'].items():
-                    for title, rating in movies.items():
-                        if library_name not in votes:
-                            votes[library_name] = {}
-                        date_voted = datetime.strptime(
-                            data['last_vote'], '%Y-%m-%d %H:%M:%S.%f')
-                        if date_voted.year >= datetime.today().year - years:
-                            if title not in votes[library_name]:
-                                votes[library_name][title] = []
-                            votes[library_name][title].append(rating)
+                # Check if 'last_vote' exists in data
+                if 'last_vote' in data:
+                    last_vote_date = datetime.strptime(data['last_vote'], '%Y-%m-%d %H:%M:%S.%f')
+                    if last_vote_date.year >= datetime.today().year - years:
+                        for library_name, movies in data['votes'].items():
+                            if library_name not in votes:
+                                votes[library_name] = {}
+                            for title, rating in movies.items():
+                                if title not in votes[library_name]:
+                                    votes[library_name][title] = []
+                                votes[library_name][title].append(rating)
 
         # Calculate the average rating for each title in each library
         avg_ratings = {}
@@ -276,8 +265,7 @@ class BestOf(commands.Cog):
         # Sort the titles by average rating and return the top 3 for each library
         top_movies = {}
         for library_name, movies in avg_ratings.items():
-            top_movies[library_name] = sorted(
-                movies, key=movies.get, reverse=True)[:3]
+            top_movies[library_name] = sorted(movies, key=movies.get, reverse=True)[:3]
 
         # Create and send an embed with the top titles for each library
         current_year = datetime.today().year
@@ -290,8 +278,7 @@ class BestOf(commands.Cog):
                 movie = library.get(movie_title)
                 movie_str += f"\n[{movie_title}]({movie.guid}): {avg_ratings[library_name][movie_title]:.1f}"
             if movie_str:
-                embed.add_field(name=library_name,
-                                value=movie_str, inline=False)
+                embed.add_field(name=library_name, value=movie_str, inline=False)
 
         await ctx.send(embed=embed)
 
