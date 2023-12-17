@@ -1,6 +1,7 @@
 import discord
 from redbot.core import commands, Config, bank, app_commands
 from typing import Optional
+import datetime
 
 class Jobs(commands.Cog):
     def __init__(self, bot):
@@ -292,3 +293,68 @@ class JobView(discord.ui.View):
                 await thread.send(f"{creator.mention} has marked the job as complete and credit has been sent to {taker.mention}.")
 
         await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
+
+    @discord.ui.button(label="Post a job", emoji="➕", style=discord.ButtonStyle.secondary)
+    async def post_job_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await self.job_post_modal.send(interaction.user)
+            
+class JobPostModal(discord.ui.View):
+    def __init__(self, jobs_cog):
+        super().__init__(timeout=None)
+        self.jobs_cog = jobs_cog
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger)
+    async def cancel_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Cancel the job posting
+        await interaction.response.edit_message(view=None)
+
+    async def send(self, user: discord.User):
+        # Create and send the job posting modal
+        embed = discord.Embed(
+            title="Post a Job",
+            description="Fill out the information below to post a new job.",
+            color=discord.Color.blurple()
+        )
+        view = self
+        view.clear_items()
+
+        title_input = discord.ui.TextInput(
+            placeholder="Enter job title...",
+            min_length=5,
+            max_length=100,
+            clearable=True
+        )
+        salary_input = discord.ui.NumberInput(
+            placeholder="Enter job salary...",
+            min_value=1,
+            max_value=1000000,
+            clearable=True
+        )
+        description_input = discord.ui.TextInput(
+            placeholder="Enter job description...",
+            min_length=10,
+            max_length=2000,
+            clearable=True
+        )
+
+        @title_input.change
+        async def on_title_change(inp, _: str):
+            embed.set_footer(text=f"Job title: {inp}")
+            await view.message.edit(embed=embed, view=view)
+
+        @salary_input.change
+        async def on_salary_change(inp, _: int):
+            embed.set_footer(text=f"Job salary: {inp} credits")
+            await view.message.edit(embed=embed, view=view)
+
+        @description_input.change
+        async def on_description_change(inp, _: str):
+            embed.set_footer(text=f"Job description: {inp}")
+            await view.message.edit(embed=embed, view=view)
+
+        self.add_item(title_input)
+        self.add_item(salary_input)
+        self.add_item(description_input)
+
+        interaction = await user.send(embed=embed, view=self)
+        await interaction.reply(type=discord.ResponseType.deferred_message_update)
