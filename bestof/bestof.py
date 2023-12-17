@@ -165,12 +165,23 @@ class BestOf(commands.Cog):
             return
 
         # Confirm with the user that the correct item was found
+        # Generate Plex Web URL for the title
+        plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
+
+        # Generate Poster URL
+        poster_url = self.plex.url(item.thumb, includeToken=True) if item.thumb else None
+
+        # Confirm with the user that the correct item was found
         embed = discord.Embed(
             title=item.title,
-            url=item.guid,
+            url=plex_web_url,
             description=item.summary
         )
-        embed.set_image(url=item.thumb)
+
+        # Add poster URL if available
+        if poster_url:
+            embed.set_image(url=poster_url)
+
         msg = await interaction.followup.send(embed=embed)
         await msg.add_reaction("✅")
         await msg.add_reaction("❌")
