@@ -161,7 +161,7 @@ class JobView(discord.ui.View):
         self.apply_emoji = apply_emoji
 
         # Create the "Apply" button with the emoji
-        self.add_item(discord.ui.Button(label=f"{self.apply_emoji} Apply", style=discord.ButtonStyle.primary, custom_id=f"apply_{job_id}"))
+        # self.add_item(discord.ui.Button(label=f"{self.apply_emoji} Apply", style=discord.ButtonStyle.primary, custom_id=f"apply_{job_id}"))
 
         # Create and add the "Untake Job" and "Mark job as done" buttons
         # They will be enabled or disabled based on job status
@@ -182,6 +182,7 @@ class JobView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
+    @discord.ui.button(label="Apply", style=discord.ButtonStyle.primary)
     async def apply_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         
