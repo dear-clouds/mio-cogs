@@ -113,7 +113,14 @@ class Jobs(commands.Cog):
                 "image_url": image
             }
 
-        default_color = getattr(discord.Colour, color, await context.embed_colour()) if color is not None else await context.embed_colour()
+        if color:
+            if color.startswith('#'):
+                color_value = int(color[1:], 16)
+                default_color = discord.Colour(color_value)
+            else:
+                default_color = getattr(discord.Colour, color, await context.embed_colour())
+        else:
+            default_color = await context.embed_colour()
 
         apply_emoji = await self.config.guild(guild).emoji()
     
@@ -194,15 +201,21 @@ class JobView(discord.ui.View):
             if thread:
                 await thread.send(f"{taker.mention} has taken the job.")
 
-        # Update the message embed and disable the apply button
-        embed = self._message.embeds[0]
-        embed.set_field_at(1, name="Taken by", value=taker.mention)
-        self.children[0].disabled = True  # Apply button
-        self.children[1].disabled = False  # Untake button
-        self.children[2].disabled = False  # Job done button
-        await self._message.edit(embed=embed, view=self)
+        try:
+            # Update the message embed and disable the apply button
+            embed = self._message.embeds[0]
+            embed.set_field_at(1, name="Taken by", value=taker.mention)
+            self.children[0].disabled = True  # Apply button
+            self.children[1].disabled = False  # Untake button
+            self.children[2].disabled = False  # Job done button
+            await self._message.edit(embed=embed, view=self)
 
-        await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
+            await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
+        except Exception as e:
+            # Log the error for debugging and acknowledge the interaction
+            print(f"Error in apply_button_callback: {e}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message("An error occurred.", ephemeral=True)
 
     async def untake_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
