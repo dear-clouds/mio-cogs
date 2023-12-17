@@ -160,14 +160,6 @@ class JobView(discord.ui.View):
         self._message = None
         self.apply_emoji = apply_emoji
 
-        # Create the "Apply" button with the emoji
-        self.add_item(discord.ui.Button(label=f"{self.apply_emoji} Apply", style=discord.ButtonStyle.primary, custom_id=f"apply_{job_id}"))
-
-        # Create and add the "Untake Job" and "Mark job as done" buttons
-        # They will be enabled or disabled based on job status
-        self.add_item(discord.ui.Button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id=f"untake_{job_id}", disabled=True))
-        self.add_item(discord.ui.Button(label="Mark job as done", style=discord.ButtonStyle.green, custom_id=f"job_done_{job_id}", disabled=True))
-
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         # Check if the user interacting with the button has the appropriate role
         return await self.jobs_cog._can_take(interaction.user)
@@ -182,45 +174,46 @@ class JobView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-    async def apply_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="Apply", style=discord.ButtonStyle.primary)
+    async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
-        await interaction.followup.send("Test response")
         
-        # job_id = self.job_id
-        # taker = interaction.user
-        # guild = interaction.guild
+        job_id = self.job_id
+        taker = interaction.user
+        guild = interaction.guild
 
-        # async with self.jobs_cog.config.guild(guild).jobs() as jobs:
-        #     job = jobs.get(str(job_id))
-        #     if not job or job["taker"]:
-        #         await interaction.response.send_message("This job has already been taken.", ephemeral=True)
-        #         return
+        async with self.jobs_cog.config.guild(guild).jobs() as jobs:
+            job = jobs.get(str(job_id))
+            if not job or job["taker"]:
+                await interaction.response.send_message("This job has already been taken.", ephemeral=True)
+                return
 
-        #     job["taker"] = taker.id
-        #     job["status"] = "in_progress"
+            job["taker"] = taker.id
+            job["status"] = "in_progress"
 
-        #     # Send a message in the job's thread
-        #     thread = guild.get_thread(job["thread_id"])
-        #     if thread:
-        #         await thread.send(f"{taker.mention} has taken the job.")
+            # Send a message in the job's thread
+            thread = guild.get_thread(job["thread_id"])
+            if thread:
+                await thread.send(f"{taker.mention} has taken the job.")
 
-        # try:
-        #     # Update the message embed and disable the apply button
-        #     embed = self._message.embeds[0]
-        #     embed.set_field_at(1, name="Taken by", value=taker.mention)
-        #     self.children[0].disabled = True  # Apply button
-        #     self.children[1].disabled = False  # Untake button
-        #     self.children[2].disabled = False  # Job done button
-        #     await self._message.edit(embed=embed, view=self)
+        try:
+            # Update the message embed and disable the apply button
+            embed = self._message.embeds[0]
+            embed.set_field_at(1, name="Taken by", value=taker.mention)
+            self.children[0].disabled = True  # Apply button
+            self.children[1].disabled = False  # Untake button
+            self.children[2].disabled = False  # Job done button
+            await self._message.edit(embed=embed, view=self)
 
-        #     await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
-        # except Exception as e:
-        #     # Log the error for debugging and acknowledge the interaction
-        #     print(f"Error in apply_button_callback: {e}")
-        #     if not interaction.response.is_done():
-        #         await interaction.response.send_message("An error occurred.", ephemeral=True)
+            await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
+        except Exception as e:
+            # Log the error for debugging and acknowledge the interaction
+            print(f"Error in apply_button: {e}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message("An error occurred.", ephemeral=True)
 
-    async def untake_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger)
+    async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
         taker = interaction.user
         guild = interaction.guild
@@ -249,7 +242,8 @@ class JobView(discord.ui.View):
 
         await interaction.response.send_message("You have untaken the job.", ephemeral=True)
 
-    async def job_done_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="Mark job as done", style=discord.ButtonStyle.green)
+    async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
         taker = interaction.user
         guild = interaction.guild
@@ -278,14 +272,3 @@ class JobView(discord.ui.View):
         await self._message.edit(embed=embed, view=self)
 
         await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
-
-    # Add the callback methods to their respective buttons
-    def add_item(self, item):
-        if isinstance(item, discord.ui.Button):
-            if item.custom_id.startswith("apply_"):
-                item.callback = self.apply_button_callback
-            elif item.custom_id.startswith("untake_"):
-                item.callback = self.untake_button_callback
-            elif item.custom_id.startswith("job_done_"):
-                item.callback = self.job_done_button_callback
-        super().add_item(item)
