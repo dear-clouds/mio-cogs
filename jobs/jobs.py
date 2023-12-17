@@ -183,6 +183,8 @@ class JobView(discord.ui.View):
                 pass
 
     async def apply_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        
         job_id = self.job_id
         taker = interaction.user
         guild = interaction.guild
