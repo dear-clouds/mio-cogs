@@ -7,10 +7,10 @@ class Jobs(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=1995987654322)
         default_guild = {
-            "job_channel_id": None,
-            "roles": {},
-            "jobs": {},
-            "emoji": "\U0001F4BC"
+        "job_channel_id": None,
+        "poster_roles": [],
+        "seeker_roles": [],
+        "jobs": {}
         }
         self.config.register_guild(**default_guild)
 
@@ -27,42 +27,33 @@ class Jobs(commands.Cog):
         await self.config.guild(ctx.guild).job_channel_id.set(channel.id)
         await ctx.send(f"Job channel has been set to {channel.mention}")
 
-    @jobs.command(name='emoji')
-    @commands.has_guild_permissions(administrator=True)
-    async def set_emoji(self, ctx, emoji: str):
-        """Set the emoji for job reactions"""
-        await self.config.guild(ctx.guild).emoji.set(emoji)
-        await ctx.send(f"Emoji has been set to {emoji}")
-
     @jobs.command(name='posters')
     @commands.has_guild_permissions(administrator=True)
     async def set_create_role(self, ctx, role: discord.Role):
-        """Set the role allowed to create jobs"""
-        async with self.config.guild(ctx.guild).roles() as roles:
-            roles[str(role.id)] = "create"
+        """Add a role to the list of roles allowed to create jobs"""
+        async with self.config.guild(ctx.guild).poster_roles() as poster_roles:
+            if role.id not in poster_roles:
+                poster_roles.append(role.id)
         await ctx.send(f"Role {role.name} can now create jobs.")
 
     @jobs.command(name='seekers')
     @commands.has_guild_permissions(administrator=True)
     async def set_take_role(self, ctx, role: discord.Role):
-        """Set the role allowed to take jobs"""
-        async with self.config.guild(ctx.guild).roles() as roles:
-            roles[str(role.id)] = "take"
+        """Add a role to the list of roles allowed to take jobs"""
+        async with self.config.guild(ctx.guild).seeker_roles() as seeker_roles:
+            if role.id not in seeker_roles:
+                seeker_roles.append(role.id)
         await ctx.send(f"Role {role.name} can now take jobs.")
         
     async def can_create(self, member):
         """Check if the member can create jobs."""
-        role_ids = [role.id for role in member.roles]
-        async with self.config.guild(member.guild).roles() as roles:
-            create_role_id = next((role_id for role_id in role_ids if roles.get(str(role_id)) == "create"), None)
-        return create_role_id is not None
+        async with self.config.guild(member.guild).poster_roles() as poster_roles:
+            return any(role.id in poster_roles for role in member.roles)
 
     async def can_take(self, member):
         """Check if the member can take jobs."""
-        role_ids = [role.id for role in member.roles]
-        async with self.config.guild(member.guild).roles() as roles:
-            take_role_id = next((role_id for role_id in role_ids if roles.get(str(role_id)) == "take"), None)
-        return take_role_id is not None
+        async with self.config.guild(member.guild).seeker_roles() as seeker_roles:
+            return any(role.id in seeker_roles for role in member.roles)
 
     @app_commands.command(name='job')
     async def add_job_slash(self, interaction: discord.Interaction, title: str, salary: int, description: str,
@@ -121,8 +112,6 @@ class Jobs(commands.Cog):
                 default_color = getattr(discord.Colour, color, await context.embed_colour())
         else:
             default_color = await context.embed_colour()
-
-        apply_emoji = await self.config.guild(guild).emoji()
     
         # Create and configure the embed
         embed = discord.Embed(
@@ -139,7 +128,7 @@ class Jobs(commands.Cog):
         job_channel_id = await self.config.guild(guild).job_channel_id()
         job_channel = self.bot.get_channel(job_channel_id)
         
-        view = JobView(self, job_id, apply_emoji)
+        view = JobView(self, job_id)
         job_message = await job_channel.send(embed=embed, view=view)
         view._message = job_message
 
@@ -153,20 +142,11 @@ class Jobs(commands.Cog):
         await context.send(f"Job created with ID {job_id}", ephemeral=True)
 
 class JobView(discord.ui.View):
-    def __init__(self, jobs_cog, job_id: int, apply_emoji: str):
-        super().__init__(timeout=180)
+    def __init__(self, jobs_cog, job_id: int):
+        super().__init__(timeout=None)
         self.jobs_cog = jobs_cog
         self.job_id = job_id
         self._message = None
-        self.apply_emoji = apply_emoji
-
-        # Create the "Apply" button with the emoji
-        # self.add_item(discord.ui.Button(label=f"{self.apply_emoji} Apply", style=discord.ButtonStyle.primary, custom_id=f"apply_{job_id}"))
-
-        # Create and add the "Untake Job" and "Mark job as done" buttons
-        # They will be enabled or disabled based on job status
-        # self.add_item(discord.ui.Button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id=f"untake_{job_id}", disabled=True))
-        # self.add_item(discord.ui.Button(label="Mark job as done", style=discord.ButtonStyle.green, custom_id=f"job_done_{job_id}", disabled=True))
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         # Check if the user interacting with the button has the appropriate role
@@ -278,14 +258,3 @@ class JobView(discord.ui.View):
         await self._message.edit(embed=embed, view=self)
 
         await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
-
-    # Add the callback methods to their respective buttons
-    # def add_item(self, item):
-    #     if isinstance(item, discord.ui.Button):
-    #         if item.custom_id.startswith("apply_"):
-    #             item.callback = self.apply_button
-    #         elif item.custom_id.startswith("untake_"):
-    #             item.callback = self.untake_button
-    #         elif item.custom_id.startswith("job_done_"):
-    #             item.callback = self.job_done_button
-    #     super().add_item(item)
