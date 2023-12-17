@@ -3,6 +3,7 @@ from redbot.core import commands, Config, bank, app_commands
 from discord import Embed, Colour, Button, ButtonStyle
 from typing import Optional
 
+
 class Jobs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -52,19 +53,19 @@ class Jobs(commands.Cog):
         await ctx.send(f"Role {role.name} can now take jobs.")
 
     @app_commands.command(name='job')
-    async def add_job_slash(self, ctx: commands.Context, title: str, salary: int, description: str, 
-                        image: Optional[str] = None, color: Optional[str] = None):
+    async def add_job_slash(self, ctx: commands.Context, title: str, salary: int, description: str,
+                            image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
         await self.add_job(ctx, title, salary, description, image, color)
 
     @jobs.command(name='add')
-    async def add_job_message(self, ctx: commands.Context, title: str, salary: int, description: str, 
-                          image: Optional[str] = None, color: Optional[str] = None):
+    async def add_job_message(self, ctx: commands.Context, title: str, salary: int, description: str,
+                              image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
         await self.add_job(ctx, title, salary, description, image, color)
 
     async def add_job(self, ctx: commands.Context, title: str, salary: int, description: str,
-                    image: Optional[str] = None, color: Optional[str] = None):
+                      image: Optional[str] = None, color: Optional[str] = None):
         """Helper function to create a job"""
         if not await self._can_create(ctx.author):
             await ctx.send("You do not have permission to create jobs", ephemeral=True)
@@ -92,6 +93,9 @@ class Jobs(commands.Cog):
 
         default_color = getattr(discord.Colour, color, await ctx.embed_colour()) if color is not None else await ctx.embed_colour()
 
+        view = JobView(self, job_id)
+
+        # Create and configure the embed
         embed = discord.Embed(
             title=f"{title}",
             description=description,
@@ -99,18 +103,16 @@ class Jobs(commands.Cog):
         )
         embed.add_field(name="Salary", value=str(salary))
         embed.add_field(name="Taken by", value="Not yet taken")
-
         if image:
             embed.set_image(url=image)
 
+        # Send the job message with the embed and view
+        job_message = await job_channel.send(embed=embed, view=view)
+        view._message = job_message  # Link the message to the view for later editing
+
         job_channel_id = await self.config.guild(ctx.guild).job_channel_id()
         job_channel = self.bot.get_channel(job_channel_id)
-        job_message = await job_channel.send(embed=embed)
         thread = await job_message.create_thread(name=f"{title}'s Discussion")
-
-        job_done_button = discord.ui.Button(style=discord.ButtonStyle.green, label="Job Done", custom_id=f"job_done_{job_id}")
-        action_row = discord.ui.ActionRow(job_done_button)
-        job_message = await job_channel.send(embed=embed, components=[action_row])
 
         async with self.config.guild(ctx.guild).jobs() as jobs:
             job = jobs[str(job_id)]
@@ -125,127 +127,113 @@ class Jobs(commands.Cog):
         if ctx.custom_id.startswith("job_done_"):
             await self.job_done_button_click(ctx)
 
-    async def job_done_button_click(self, ctx):
-        job_id = int(ctx.custom_id.split("_")[-1])
-
-        async with self.config.guild(ctx.guild).jobs() as jobs:
-            job = jobs.get(str(job_id))
-            if not job or job["status"] != "in_progress" or ctx.author.id != job["creator"] and not ctx.author.guild_permissions.administrator:
-                return
-
-            taker = ctx.guild.get_member(job["taker"])
-            if not taker:
-                return
-
-            await bank.deposit_credits(taker, job["salary"])
-            job["status"] = "complete"
-
-            thread = ctx.guild.get_thread(job["thread_id"])
-            if thread:
-                await thread.send("Job has been marked as complete.")
-
-            job_message = await ctx.channel.fetch_message(job["message_id"])
-            if job_message:
-                embed = job_message.embeds[0]
-                embed.color = discord.Colour.green()
-                job_done_button = discord.ui.Button(style=discord.ButtonStyle.green, label="Job Done", custom_id=f"job_done_{job_id}", disabled=True)
-                await job_message.edit(embed=embed, components=[job_done_button])
-
-            await ctx.send("Job has been marked as complete.")
-
-    @commands.Cog.listener()
-    async def on_raw_reaction_add(self, payload):
-        emoji = await self.config.guild(self.bot.get_guild(payload.guild_id or payload.guild_id)).emoji()
-        if payload.emoji.name == emoji:
-            await self._handle_take_job_reaction(payload)
-
-    @commands.Cog.listener()
-    async def on_raw_reaction_remove(self, payload):
-        emoji = await self.config.guild(self.bot.get_guild(payload.guild_id or payload.guild_id)).emoji()
-        if payload.emoji.name == emoji:
-            await self._handle_untake_job_reaction(payload)
-
-    async def _handle_take_job_reaction(self, payload):
-        job_channel_id = await self.config.guild(self.bot.get_guild(payload.guild_id)).job_channel_id()
-        if payload.channel_id != job_channel_id:
-            return
-
-        guild = self.bot.get_guild(payload.guild_id)
-        async with self.config.guild(guild).jobs() as jobs:
-            job = jobs.get(str(payload.message_id))
-            if not job or job["status"] != "open":
-                return
-
-            member = payload.member
-            if await self._can_take(member):
-                job["taker"] = member.id
-                job["status"] = "in_progress"
-
-                thread = member.guild.get_thread(job["thread_id"])
-                if thread:
-                    await thread.send(f"{member.mention} has taken the job.")
-
-                job_message = await self.bot.get_channel(job_channel_id).fetch_message(payload.message_id)
-                embed = job_message.embeds[0]
-                embed.set_field_at(1, name="Taken by", value=member.mention)
-                await job_message.edit(embed=embed)
-
-    async def _handle_untake_job_reaction(self, payload):
-        job_channel_id = await self.config.guild(self.bot.get_guild(payload.guild_id)).job_channel_id()
-        if payload.channel_id != job_channel_id:
-            return
-
-        async with self.config.guild(payload.guild_id).jobs() as jobs:
-            job = jobs.get(str(payload.message_id))
-            if not job or job["status"] != "in_progress" or payload.user_id != job["taker"]:
-                return
-
-            member = self.bot.get_guild(payload.guild_id).get_member(payload.user_id)
-            job["taker"] = None
-            job["status"] = "open"
-
-            thread = member.guild.get_thread(job["thread_id"])
-            if thread:
-                await thread.send(f"{member.mention} has untaken the job.")
-
-            job_message = await self.bot.get_channel(job_channel_id).fetch_message(payload.message_id)
-            embed = job_message.embeds[0]
-            embed.set_field_at(1, name="Taken by", value="Not yet taken")
-            await job_message.edit(embed=embed)
-
     async def _can_create(self, member):
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
-            create_role_id = next((role_id for role_id in role_ids if roles.get(str(role_id)) == "create"), None)
+            create_role_id = next(
+                (role_id for role_id in role_ids if roles.get(str(role_id)) == "create"), None)
         return create_role_id is not None
 
     async def _can_take(self, member):
         role_ids = [role.id for role in member.roles]
         async with self.config.guild(member.guild).roles() as roles:
-            take_role_id = next((role_id for role_id in role_ids if roles.get(str(role_id)) == "take"), None)
+            take_role_id = next(
+                (role_id for role_id in role_ids if roles.get(str(role_id)) == "take"), None)
         return take_role_id is not None
 
     async def cog_added(self):
         await self.bot.load_application_commands()
 
+    class JobView(discord.ui.View):
+        def __init__(self, jobs_cog, job_id: int) -> None:
+            super().__init__(timeout=180)
+            self.jobs_cog = jobs_cog
+            self.job_id = job_id
+            self._message: discord.Message = None
+            self.taker = None  # To keep track of the user who has taken the job
 
-class JobView(discord.ui.View):
-    def __init__(self) -> None:
-        super().__init__(timeout=180)  # seconds
-        self._message: discord.Message = None
+        async def on_timeout(self) -> None:
+            for item in self.children:
+                if isinstance(item, discord.ui.Button):
+                    item.disabled = True
+            if self._message is not None:
+                try:
+                    await self._message.edit(view=self)
+                except discord.HTTPException:
+                    pass
 
-    async def on_timeout(self) -> None:
-        for item in self.children:
-            if isinstance(item, discord.ui.Button):
-                item.disabled = True
-        if self._message is not None:
-            try:
-                await self._message.edit(view=self)
-            except discord.HTTPException:
-                pass
+        async def _apply_for_job(self, interaction: discord.Interaction) -> None:
+            if self.taker is not None:
+                await interaction.response.send_message("This job is already taken.", ephemeral=True)
+                return
 
-    # Example button for applying to a job
-    @discord.ui.button(label="Apply", style=discord.ButtonStyle.success)
-    async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        # Placeholder action for applying to a job
-        await interaction.response.send_message("Application received!", ephemeral=True)
+            self.taker = interaction.user
+            await self._update_job_status(interaction, "in_progress")
+
+            await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
+
+        async def _untake_job(self, interaction: discord.Interaction) -> None:
+            if self.taker != interaction.user:
+                await interaction.response.send_message("You cannot untake a job you haven't taken.", ephemeral=True)
+                return
+
+            self.taker = None
+            await self._update_job_status(interaction, "open")
+
+            await interaction.response.send_message("You have untaken the job.", ephemeral=True)
+
+        async def _update_job_status(self, interaction: discord.Interaction, status: str) -> None:
+            guild = interaction.guild
+            async with self.jobs_cog.config.guild(guild).jobs() as jobs:
+                job = jobs.get(str(self.job_id))
+                if not job:
+                    return
+
+                job["status"] = status
+                job["taker"] = self.taker.id if self.taker else None
+
+                thread = guild.get_thread(job["thread_id"])
+                if thread:
+                    action = "taken" if status == "in_progress" else "untaken"
+                    await thread.send(f"{self.taker.mention} has {action} the job.")
+
+                if self._message:
+                    embed = self._message.embeds[0]
+                    taker_text = self.taker.mention if self.taker else "Not yet taken"
+                    embed.set_field_at(1, name="Taken by", value=taker_text)
+                    await self._message.edit(embed=embed)
+
+        @discord.ui.button(label="Apply", style=discord.ButtonStyle.success)
+        async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+            await self._apply_for_job(interaction)
+
+        @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger)
+        async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+            await self._untake_job(interaction)
+
+        @discord.ui.button(label="Job Done", style=discord.ButtonStyle.green, custom_id=f"job_done_{self.job_id}")
+        async def job_done_button_click(self, interaction: discord.Interaction):
+            guild = interaction.guild
+            async with self.jobs_cog.config.guild(guild).jobs() as jobs:
+                job = jobs.get(str(self.job_id))
+                if not job or job["status"] != "in_progress" or self.taker != interaction.user:
+                    await interaction.response.send_message("You cannot mark this job as done.", ephemeral=True)
+                    return
+
+                job["status"] = "complete"
+                await bank.deposit_credits(self.taker, job["salary"])
+
+                thread = guild.get_thread(job["thread_id"])
+                if thread:
+                    await thread.send("Job has been marked as complete.")
+
+                if self._message:
+                    embed = self._message.embeds[0]
+                    embed.color = discord.Colour.green()
+                    await self._message.edit(embed=embed, view=self)
+
+                await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
+
+        @discord.ui.button(label="Job Done", style=discord.ButtonStyle.green, custom_id=f"job_done_{self.job_id}")
+        async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+            await self.job_done_button_click(interaction)
