@@ -14,6 +14,8 @@ class Jobs(commands.Cog):
         "jobs": {},
         "thumb_done": "https://i.imgur.com/0YBdp8p.png"
         }
+        default_user = {"jobs_posted": 0, "jobs_taken": 0}
+        self.config.register_user(**default_user)
         self.config.register_guild(**default_guild)
 
     @commands.group()
@@ -108,6 +110,51 @@ class Jobs(commands.Cog):
         embed.set_thumbnail(url=thumb_done_url)
 
         await ctx.send(embed=embed)
+        
+    @commands.group()
+    async def jobstats(self, ctx, user: Optional[discord.Member] = None):
+        """Show job stats for a user. Admins can view stats for any user."""
+        if not user:
+            user = ctx.author
+
+        if user != ctx.author and not ctx.channel.permissions_for(ctx.author).administrator:
+            await ctx.send("You do not have permission to view other users' job stats.")
+            return
+
+        user_data = await self.config.user(user).all()
+        jobs_posted = user_data.get("jobs_posted", 0)
+        jobs_taken = user_data.get("jobs_taken", 0)
+
+        embed = discord.Embed(title=f"{user.display_name}'s Job Stats")
+        
+        # Initialize lists to store thread links
+        posted_job_links = []
+        taken_job_links = []
+
+        async with self.config.guild(ctx.guild).jobs() as jobs:
+            for job_id, job in jobs.items():
+                if job["thread_id"]:
+                    thread = ctx.guild.get_thread(job["thread_id"])
+                    if thread:
+                        job_link = f"- [{thread.name}]({thread.jump_url})"
+                        if job["creator"] == user.id:
+                            posted_job_links.append(job_link)
+                        elif job.get("taker") == user.id and job.get("completed"):
+                            taken_job_links.append(job_link)
+
+        # Add fields to the embed
+        embed.add_field(
+            name=f"Jobs Posted ({len(posted_job_links)})",
+            value="\n".join(posted_job_links) if posted_job_links else "No jobs posted",
+            inline=True
+        )
+        embed.add_field(
+            name=f"Jobs Completed ({len(taken_job_links)})",
+            value="\n".join(taken_job_links) if taken_job_links else "No jobs completed",
+            inline=True
+        )
+
+        await ctx.send(embed=embed)
 
     @app_commands.command(name='job')
     async def add_job_slash(self, interaction: discord.Interaction, title: str, salary: int, description: str,
@@ -194,9 +241,13 @@ class Jobs(commands.Cog):
         view = JobView(self, job_id)
         job_message = await job_channel.send(embed=embed, view=view)
         view._message = job_message
+        user_data = await self.config.user(author).all()
+        jobs_posted = user_data.get("jobs_posted", 0) + 1
+        await self.config.user(author).jobs_posted.set(jobs_posted)
 
         # Create the job's discussion thread and post the initial embed
-        thread = await job_message.create_thread(name=f"{author.display_name}'s Job: {title}")
+        thread_title = f"{author.display_name}'s Job #{jobs_posted}: {title}"
+        thread = await job_message.create_thread(name=thread_title)
         await thread.send(embed=embed)
 
         async with self.config.guild(guild).jobs() as jobs:
@@ -319,6 +370,9 @@ class JobView(discord.ui.View):
             if taker_id:
                 taker = guild.get_member(taker_id)
                 if taker:
+                    taker_data = await self.config.user(taker).all()
+                    jobs_taken = taker_data.get("jobs_taken", 0) + 1
+                    await self.config.user(taker).jobs_taken.set(jobs_taken)
                     await bank.deposit_credits(taker, job["salary"])
 
                 # Delete the initial message with buttons
@@ -361,7 +415,7 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
 
     job_title = discord.ui.TextInput(
         label="Job Title",
-        placeholder="Enter the job title here...",
+        placeholder="Enter the job title here.",
         required=True,
         min_length=5,
         max_length=100
@@ -369,14 +423,14 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
 
     salary = discord.ui.TextInput(
         label="Salary",
-        placeholder="Enter the salary here...",
+        placeholder="The amount will be withdrawn after submission",
         style=discord.TextStyle.short,
         required=True,
     )
 
     description = discord.ui.TextInput(
         label="Description",
-        placeholder="Enter the job description here...",
+        placeholder="Describe the job here. You can use markdown.",
         style=discord.TextStyle.paragraph,
         required=True,
         min_length=10,
@@ -385,7 +439,7 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
 
     image_url = discord.ui.TextInput(
         label="Image URL (optional)",
-        placeholder="Enter an image URL...",
+        placeholder="Enter an image URL.",
         required=False,  # This field is optional
         max_length=2048  # Maximum length for URLs
     )
