@@ -285,33 +285,29 @@ class BestOf(commands.Cog):
             color=discord.Color.blurple()
         )
 
-        data_exists_for_adjacent_years = {'previous': False, 'next': False}
-        current_year = datetime.today().year
+        for library_name, yearly_data in votes.items():
+            if year in yearly_data:
+                # Assuming sorted_movies is a list of tuples like (title, rating)
+                sorted_movies = sorted(yearly_data[year], key=lambda x: x[1], reverse=True)
+                if sorted_movies:
+                    top_movie_title, top_movie_rating = sorted_movies[0]
+                    # Assuming you have a method to get the Plex URL for a title
+                    plex_url = self.get_plex_url(library_name, top_movie_title)
+                    embed.add_field(name=library_name, value=f"[{top_movie_title}]({plex_url})", inline=False)
 
-        for library_name, movies in votes.items():
-            if year in movies:
-                sorted_movies = sorted(movies[year], key=lambda x: x[1], reverse=True)  # Sort by rating
-                movie_str = "\n".join(f"{movie[0]}: {movie[1]:.1f}" for movie in sorted_movies)
-                embed.add_field(name=library_name, value=movie_str, inline=False)
-
-                # Check for adjacent years
-                if year - 1 in movies:
-                    data_exists_for_adjacent_years['previous'] = True
-                if year + 1 in movies and year + 1 < current_year:
-                    data_exists_for_adjacent_years['next'] = True
-
-        return embed, data_exists_for_adjacent_years
+        return embed
 
     def process_votes(self, user_data):
         votes = {}
         for uid, data in user_data.items():
             if 'votes' in data:
-                for library_name, movie_title, rating, year in data['votes']:
-                    if year not in votes:
-                        votes[year] = {}
-                    if library_name not in votes[year]:
-                        votes[year][library_name] = []
-                    votes[year][library_name].append((movie_title, rating))
+                for library_name, vote_info in data['votes'].items():
+                    for movie_title, rating, year in vote_info:  # Adjust this line as per your data structure
+                        if year not in votes:
+                            votes[year] = {}
+                        if library_name not in votes[year]:
+                            votes[year][library_name] = []
+                        votes[year][library_name].append((movie_title, rating))
         return votes
 
     @commands.command()

@@ -11,7 +11,8 @@ class Jobs(commands.Cog):
         "job_channel_id": None,
         "poster_roles": [],
         "seeker_roles": [],
-        "jobs": {}
+        "jobs": {},
+        "thumb_done": "https://i.imgur.com/0YBdp8p.png"
         }
         self.config.register_guild(**default_guild)
 
@@ -76,6 +77,13 @@ class Jobs(commands.Cog):
         """Check if the member can take jobs."""
         async with self.config.guild(member.guild).seeker_roles() as seeker_roles:
             return any(role.id in seeker_roles for role in member.roles)
+        
+    @jobs.command(name='setimage')
+    @commands.has_guild_permissions(administrator=True)
+    async def set_completed_job_image(self, ctx, image_url: str):
+        """Set the custom image for completed job embeds"""
+        await self.config.guild(ctx.guild).thumb_done.set(image_url)
+        await ctx.send(f"Custom image for completed jobs has been set.")
 
     @app_commands.command(name='job')
     async def add_job_slash(self, interaction: discord.Interaction, title: str, salary: int, description: str,
@@ -260,39 +268,51 @@ class JobView(discord.ui.View):
     @discord.ui.button(label="Mark job as done", emoji="✔️", style=discord.ButtonStyle.green, disabled=True)
     async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
-        taker = interaction.user
+        user = interaction.user
         guild = interaction.guild
 
         async with self.jobs_cog.config.guild(guild).jobs() as jobs:
             job = jobs.get(str(job_id))
-            if not job or job["taker"] != taker.id or job["status"] != "in_progress":
-                await interaction.response.send_message("You cannot mark this job as done.", ephemeral=True)
+            if not job:
+                await interaction.response.send_message("Job not found.", ephemeral=True)
                 return
 
-            job["status"] = "complete"
-            taker_id = job["taker"]
-            taker = guild.get_member(taker_id)
-            # Pay the taker
-            if taker:
-                await bank.deposit_credits(taker, job["salary"])
+            # Check if the user is the job creator
+            if job["creator"] != user.id:
+                await interaction.response.send_message("You are not authorized to mark this job as done.", ephemeral=True)
+                return
 
-            # Set the job as completed
+            if job["status"] != "in_progress":
+                await interaction.response.send_message("This job cannot be marked as done.", ephemeral=True)
+                return
+
+            # Mark the job as complete
+            job["status"] = "complete"
             job["completed"] = True
 
-            # Delete the initial message with buttons
-            try:
-                await self._message.delete()
-            except discord.NotFound:
-                pass
+            # Pay the taker if there is one
+            taker_id = job.get("taker")
+            if taker_id:
+                taker = guild.get_member(taker_id)
+                if taker:
+                    await bank.deposit_credits(taker, job["salary"])
 
-            # Send a message in the job's thread with a green-colored embed
-            thread = guild.get_thread(job["thread_id"])
-            creator = guild.get_member(job["creator"])
-            if thread:
-                embed = self._message.embeds[0]
-                embed.color = discord.Colour.green()
-                await thread.send(embed=embed)
-                await thread.send(f"{creator.mention} has marked the job as complete and credits has been sent to {taker.mention}.")
+                # Delete the initial message with buttons
+                try:
+                    await self._message.delete()
+                except discord.NotFound:
+                    pass
+
+                # Send a message in the job's thread with a green-colored embed
+                completed_image_url = await self.jobs_cog.config.guild(guild).thumb_done()
+                thread = guild.get_thread(job["thread_id"])
+                creator = guild.get_member(job["creator"])
+                if thread:
+                    embed = self._message.embeds[0]
+                    embed.color = discord.Colour.green()
+                    embed.set_thumbnail(url=completed_image_url)
+                    await thread.send(embed=embed)
+                    await thread.send(f"{creator.mention} has marked the job as complete and credits has been sent to {taker.mention}.")
 
         await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
 
