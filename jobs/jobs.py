@@ -132,6 +132,8 @@ class Jobs(commands.Cog):
         posted_job_links = []
         taken_job_links = []
 
+        print("Posted Job Links:", posted_job_links)
+        print("Taken Job Links:", taken_job_links)
         async with self.config.guild(ctx.guild).jobs() as jobs:
             for job_id, job in jobs.items():
                 if job["thread_id"]:
@@ -146,14 +148,24 @@ class Jobs(commands.Cog):
         # Split lists into pages and create embeds for each page
         posted_pages = self.split_into_pages(posted_job_links)
         taken_pages = self.split_into_pages(taken_job_links)
+        
+        print("Posted Pages:", posted_pages)
+        print("Taken Pages:", taken_pages)
 
         # Create embeds for each page
         embed_pages = [self.create_jobstats_embed(user, posted_page, taken_page, index, default_color) 
                     for index, (posted_page, taken_page) in enumerate(zip(posted_pages, taken_pages))]
 
+        # Check if there are pages to display
+        if not embed_pages:
+            await ctx.send(f"No job stats available for {user.display_name}.")
+            return
+        
+        print("Embed Pages:", embed_pages)
+
         # Initialize paginator with the created embed pages
         paginator = JobStatsPaginator(ctx, embed_pages)
-        await paginator.send_initial_message() 
+        await paginator.send_initial_message()
 
         # Add fields to the embed
         embed.add_field(
