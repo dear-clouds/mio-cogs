@@ -105,7 +105,7 @@ class Jobs(commands.Cog):
         embed.add_field(name="Job Channel", value=job_channel, inline=False)
         embed.add_field(name="Poster Roles", value=poster_roles if poster_roles else "None", inline=False)
         embed.add_field(name="Seeker Roles", value=seeker_roles if seeker_roles else "None", inline=False)
-        embed.set_thumbnail(thumb_done_url)
+        embed.set_thumbnail(url=thumb_done_url)
 
         await ctx.send(embed=embed)
 
