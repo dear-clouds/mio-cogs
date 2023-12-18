@@ -124,8 +124,9 @@ class Jobs(commands.Cog):
         user_data = await self.config.user(user).all()
         jobs_posted = user_data.get("jobs_posted", 0)
         jobs_taken = user_data.get("jobs_taken", 0)
+        default_color = await self.config.guild(ctx.guild).default_embed_color()
 
-        embed = discord.Embed(title=f"{user.display_name}'s Job Stats")
+        embed = discord.Embed(title=f"💼 {user.display_name}'s Job Stats", color=default_color)
         
         # Initialize lists to store thread links
         posted_job_links = []
@@ -141,6 +142,18 @@ class Jobs(commands.Cog):
                             posted_job_links.append(job_link)
                         elif job.get("taker") == user.id and job.get("completed"):
                             taken_job_links.append(job_link)
+                            
+        # Split lists into pages and create embeds for each page
+        posted_pages = self.split_into_pages(posted_job_links)
+        taken_pages = self.split_into_pages(taken_job_links)
+
+        # Create embeds for each page
+        embed_pages = [self.create_jobstats_embed(user, posted_page, taken_page, index, default_color) 
+                    for index, (posted_page, taken_page) in enumerate(zip(posted_pages, taken_pages))]
+
+        # Initialize paginator with the created embed pages
+        paginator = JobStatsPaginator(ctx, embed_pages)
+        await paginator.send_initial_message() 
 
         # Add fields to the embed
         embed.add_field(
@@ -155,6 +168,40 @@ class Jobs(commands.Cog):
         )
 
         await ctx.send(embed=embed)
+        
+    def split_into_pages(self, job_links, max_size=2048):
+        """Splits a list of job links into pages."""
+        pages = []
+        current_page = ""
+        for link in job_links:
+            if len(current_page) + len(link) > max_size:
+                pages.append(current_page)
+                current_page = link
+            else:
+                current_page += link + "\n"
+        if current_page:
+            pages.append(current_page)
+        return pages
+
+    def create_jobstats_embed(self, user, posted_page, taken_page, page_number, color):
+        """Creates an embed for a single page."""
+        embed = discord.Embed(title=f"💼 {user.display_name}'s Job Stats - Page {page_number + 1}", color=color)
+        embed.add_field(name="Jobs Posted", value=posted_page or "No jobs posted", inline=True)
+        embed.add_field(name="Jobs Completed", value=taken_page or "No jobs completed", inline=True)
+        return embed
+        
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction, user):
+        if isinstance(reaction.message.channel, discord.DMChannel):
+            return
+
+        if user.bot:
+            return
+
+        # Handle the pagination
+        paginator = get_paginator_for_message(reaction.message)
+        if paginator:
+            await paginator.on_reaction(reaction, user)
 
     @app_commands.command(name='job')
     async def add_job_slash(self, interaction: discord.Interaction, title: str, salary: int, description: str,
@@ -483,3 +530,25 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
         await self.jobs_cog.add_job(interaction, job_title, salary, description, image, color_str)
 
         await interaction.response.send_message(f"Job '{job_title}' created successfully!", ephemeral=True)
+
+class JobStatsPaginator:
+    def __init__(self, ctx, pages):
+        self.ctx = ctx
+        self.pages = pages
+        self.current_page = 0
+
+    async def send_initial_message(self):
+        self.message = await self.ctx.send(embed=self.pages[self.current_page])
+        await self.message.add_reaction("⬅️")
+        await self.message.add_reaction("➡️")
+
+    async def on_reaction(self, reaction, user):
+        if reaction.message.id != self.message.id or user.id != self.ctx.author.id:
+            return
+
+        if str(reaction.emoji) == "⬅️" and self.current_page > 0:
+            self.current_page -= 1
+            await self.message.edit(embed=self.pages[self.current_page])
+        elif str(reaction.emoji) == "➡️" and self.current_page < len(self.pages) - 1:
+            self.current_page += 1
+            await self.message.edit(embed=self.pages[self.current_page])
