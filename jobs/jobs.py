@@ -84,6 +84,30 @@ class Jobs(commands.Cog):
         """Set the custom image for completed job embeds"""
         await self.config.guild(ctx.guild).thumb_done.set(image_url)
         await ctx.send(f"Custom image for completed jobs has been set.")
+        
+    @jobs.command(name='showconfig')
+    @commands.has_guild_permissions(administrator=True)
+    async def show_config(self, ctx):
+        """Show the current configuration of the Jobs cog for this server."""
+        config_data = await self.config.guild(ctx.guild).all()
+
+        embed = discord.Embed(
+            title="Current Jobs Cog Configuration",
+        )
+
+        job_channel_id = config_data.get("job_channel_id")
+        job_channel = f"<#{job_channel_id}>" if job_channel_id else "Not Set"
+
+        poster_roles = ", ".join([f"<@&{role_id}>" for role_id in config_data.get("poster_roles", [])])
+        seeker_roles = ", ".join([f"<@&{role_id}>" for role_id in config_data.get("seeker_roles", [])])
+        thumb_done_url = config_data.get("thumb_done", "Not Set")
+
+        embed.add_field(name="Job Channel", value=job_channel, inline=False)
+        embed.add_field(name="Poster Roles", value=poster_roles if poster_roles else "None", inline=False)
+        embed.add_field(name="Seeker Roles", value=seeker_roles if seeker_roles else "None", inline=False)
+        embed.set_thumbnail(thumb_done_url)
+
+        await ctx.send(embed=embed)
 
     @app_commands.command(name='job')
     async def add_job_slash(self, interaction: discord.Interaction, title: str, salary: int, description: str,
