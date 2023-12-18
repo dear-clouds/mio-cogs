@@ -147,8 +147,8 @@ class Jobs(commands.Cog):
         if len(posted_job_links) > 20 or len(taken_job_links) > 20:
             for i in range(0, max(len(posted_job_links), len(taken_job_links)), 20):
                 embed = discord.Embed(title=f"💼 {user.display_name}'s Job Stats", color=default_color)
-                embed.add_field(name="Jobs Posted", value="\n".join(posted_job_links[i:i+20]), inline=True)
-                embed.add_field(name="Jobs Completed", value="\n".join(taken_job_links[i:i+20]), inline=True)
+                embed.add_field(name=f"Jobs Posted ({len(posted_job_links)})", value="\n".join(posted_job_links[i:i+20]), inline=True)
+                embed.add_field(name=f"Jobs Completed ({len(taken_job_links)})", value="\n".join(taken_job_links[i:i+20]), inline=True)
                 embeds.append(embed)
 
             # Start the paginator
@@ -157,8 +157,8 @@ class Jobs(commands.Cog):
         else:
             # Single embed if pagination is not needed
             embed = discord.Embed(title=f"💼 {user.display_name}'s Job Stats", color=default_color)
-            embed.add_field(name="Jobs Posted", value="\n".join(posted_job_links), inline=True)
-            embed.add_field(name="Jobs Completed", value="\n".join(taken_job_links), inline=True)
+            embed.add_field(name=f"Jobs Posted ({len(posted_job_links)})", value="\n".join(posted_job_links), inline=True)
+            embed.add_field(name=f"Jobs Completed ({len(taken_job_links)})", value="\n".join(taken_job_links), inline=True)
             await ctx.send(embed=embed)
 
     @app_commands.command(name='job')
