@@ -125,7 +125,7 @@ class Jobs(commands.Cog):
         user_data = await self.config.user(user).all()
         jobs_posted = user_data.get("jobs_posted", 0)
         jobs_taken = user_data.get("jobs_taken", 0)
-        default_color = await self.config.guild(ctx.guild).default_embed_color()
+        default_color = await ctx.embed_color()
         
         # Initialize lists to store thread links
         posted_job_links = []
@@ -251,7 +251,7 @@ class Jobs(commands.Cog):
         await self.config.user(author).jobs_posted.set(jobs_posted)
 
         # Create the job's discussion thread and post the initial embed
-        thread_title = f"{author.display_name}'s Job #{jobs_posted}: {title}"
+        thread_title = f"{author.display_name}'s Job {jobs_posted:02}: {title}"
         thread = await job_message.create_thread(name=thread_title)
         await thread.send(embed=embed)
 
