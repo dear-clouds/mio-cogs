@@ -2,6 +2,7 @@ import discord
 from redbot.core import commands, Config, bank, app_commands
 from typing import Optional
 import datetime
+import math
 
 class Jobs(commands.Cog):
     def __init__(self, bot):
@@ -125,15 +126,11 @@ class Jobs(commands.Cog):
         jobs_posted = user_data.get("jobs_posted", 0)
         jobs_taken = user_data.get("jobs_taken", 0)
         default_color = await self.config.guild(ctx.guild).default_embed_color()
-
-        embed = discord.Embed(title=f"💼 {user.display_name}'s Job Stats", color=default_color)
         
         # Initialize lists to store thread links
         posted_job_links = []
         taken_job_links = []
 
-        print("Posted Job Links:", posted_job_links)
-        print("Taken Job Links:", taken_job_links)
         async with self.config.guild(ctx.guild).jobs() as jobs:
             for job_id, job in jobs.items():
                 if job["thread_id"]:
@@ -144,76 +141,25 @@ class Jobs(commands.Cog):
                             posted_job_links.append(job_link)
                         elif job.get("taker") == user.id and job.get("completed"):
                             taken_job_links.append(job_link)
-                            
-        # Split lists into pages and create embeds for each page
-        posted_pages = self.split_into_pages(posted_job_links)
-        taken_pages = self.split_into_pages(taken_job_links)
-        
-        print("Posted Pages:", posted_pages)
-        print("Taken Pages:", taken_pages)
 
-        # Create embeds for each page
-        embed_pages = [self.create_jobstats_embed(user, posted_page, taken_page, index, default_color) 
-                    for index, (posted_page, taken_page) in enumerate(zip(posted_pages, taken_pages))]
+        # Create embeds for pagination if necessary
+        embeds = []
+        if len(posted_job_links) > 20 or len(taken_job_links) > 20:
+            for i in range(0, max(len(posted_job_links), len(taken_job_links)), 20):
+                embed = discord.Embed(title=f"💼 {user.display_name}'s Job Stats", color=default_color)
+                embed.add_field(name="Jobs Posted", value="\n".join(posted_job_links[i:i+20]), inline=True)
+                embed.add_field(name="Jobs Completed", value="\n".join(taken_job_links[i:i+20]), inline=True)
+                embeds.append(embed)
 
-        # Check if there are pages to display
-        if not embed_pages:
-            await ctx.send(f"No job stats available for {user.display_name}.")
-            return
-        
-        print("Embed Pages:", embed_pages)
-
-        # Initialize paginator with the created embed pages
-        paginator = JobStatsPaginator(ctx, embed_pages)
-        await paginator.send_initial_message()
-
-        # Add fields to the embed
-        embed.add_field(
-            name=f"Jobs Posted ({len(posted_job_links)})",
-            value="\n".join(posted_job_links) if posted_job_links else "No jobs posted",
-            inline=True
-        )
-        embed.add_field(
-            name=f"Jobs Completed ({len(taken_job_links)})",
-            value="\n".join(taken_job_links) if taken_job_links else "No jobs completed",
-            inline=True
-        )
-
-        await ctx.send(embed=embed)
-        
-    def split_into_pages(self, job_links, max_size=2048):
-        """Splits a list of job links into pages."""
-        pages = []
-        current_page = ""
-        for link in job_links:
-            if len(current_page) + len(link) > max_size:
-                pages.append(current_page)
-                current_page = link
-            else:
-                current_page += link + "\n"
-        if current_page:
-            pages.append(current_page)
-        return pages
-
-    def create_jobstats_embed(self, user, posted_page, taken_page, page_number, color):
-        """Creates an embed for a single page."""
-        embed = discord.Embed(title=f"💼 {user.display_name}'s Job Stats - Page {page_number + 1}", color=color)
-        embed.add_field(name="Jobs Posted", value=posted_page or "No jobs posted", inline=True)
-        embed.add_field(name="Jobs Completed", value=taken_page or "No jobs completed", inline=True)
-        return embed
-        
-    @commands.Cog.listener()
-    async def on_reaction_add(self, reaction, user):
-        if isinstance(reaction.message.channel, discord.DMChannel):
-            return
-
-        if user.bot:
-            return
-
-        # Handle the pagination
-        paginator = get_paginator_for_message(reaction.message)
-        if paginator:
-            await paginator.on_reaction(reaction, user)
+            # Start the paginator
+            paginator = Paginator(ctx, embeds)
+            await paginator.start()
+        else:
+            # Single embed if pagination is not needed
+            embed = discord.Embed(title=f"💼 {user.display_name}'s Job Stats", color=default_color)
+            embed.add_field(name="Jobs Posted", value="\n".join(posted_job_links), inline=True)
+            embed.add_field(name="Jobs Completed", value="\n".join(taken_job_links), inline=True)
+            await ctx.send(embed=embed)
 
     @app_commands.command(name='job')
     async def add_job_slash(self, interaction: discord.Interaction, title: str, salary: int, description: str,
@@ -543,24 +489,34 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
 
         await interaction.response.send_message(f"Job '{job_title}' created successfully!", ephemeral=True)
 
-class JobStatsPaginator:
-    def __init__(self, ctx, pages):
+class Paginator:
+    def __init__(self, ctx, embeds):
         self.ctx = ctx
-        self.pages = pages
+        self.embeds = embeds
         self.current_page = 0
+        self.total_pages = len(embeds)
 
-    async def send_initial_message(self):
-        self.message = await self.ctx.send(embed=self.pages[self.current_page])
+    async def start(self):
+        self.message = await self.ctx.send(embed=self.embeds[self.current_page])
         await self.message.add_reaction("⬅️")
         await self.message.add_reaction("➡️")
+        self.bot.loop.create_task(self.reaction_check())
 
-    async def on_reaction(self, reaction, user):
-        if reaction.message.id != self.message.id or user.id != self.ctx.author.id:
-            return
+    async def reaction_check(self):
+        def check(reaction, user):
+            return user == self.ctx.author and str(reaction.emoji) in ["⬅️", "➡️"]
 
-        if str(reaction.emoji) == "⬅️" and self.current_page > 0:
-            self.current_page -= 1
-            await self.message.edit(embed=self.pages[self.current_page])
-        elif str(reaction.emoji) == "➡️" and self.current_page < len(self.pages) - 1:
-            self.current_page += 1
-            await self.message.edit(embed=self.pages[self.current_page])
+        while True:
+            try:
+                reaction, user = await self.bot.wait_for("reaction_add", timeout=60.0, check=check)
+                if str(reaction.emoji) == "➡️" and self.current_page < self.total_pages - 1:
+                    self.current_page += 1
+                    await self.message.edit(embed=self.embeds[self.current_page])
+                elif str(reaction.emoji) == "⬅️" and self.current_page > 0:
+                    self.current_page -= 1
+                    await self.message.edit(embed=self.embeds[self.current_page])
+
+                await self.message.remove_reaction(reaction, user)
+            except asyncio.TimeoutError:
+                await self.message.clear_reactions()
+                break
