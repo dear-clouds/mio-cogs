@@ -301,8 +301,8 @@ class BestOf(commands.Cog):
         user_data = await self.config.all_users()
         votes = self.process_votes(user_data)
 
-        # Extract all years that have votes
-        all_years = {vote_info.get('year') for _, user_votes in user_data.items() for vote_info in user_votes.get('votes', {}).values()}
+        # Extract all years that have votes and filter out None values
+        all_years = {vote_info.get('year') for _, user_votes in user_data.items() for vote_info in user_votes.get('votes', {}).values() if vote_info.get('year') is not None}
 
         embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
         if not data_exists:
