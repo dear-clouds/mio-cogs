@@ -145,7 +145,7 @@ class BestOf(commands.Cog):
         view = View()
         view.add_item(select_menu)
 
-        await ctx.send("Select a Library to Vote In", view=view)
+        await ctx.send("**Select a Library to Vote In. You can only vote for one title per library and per year.**", view=view)
 
     async def add_vote(self, interaction, library_name: str, title: str, is_tv_show: bool = False):
         # Ensure the Plex server has been initialized
@@ -502,9 +502,9 @@ class BestOf(commands.Cog):
 class LibrarySelect(Select):
     def __init__(self, libraries, cog, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.libraries = libraries
+        self.libraries = sorted(libraries)  # Sort the libraries alphabetically
         self.cog = cog
-        for library_name in libraries:
+        for library_name in self.libraries:
             self.add_option(label=library_name)
 
     async def callback(self, interaction: discord.Interaction):
