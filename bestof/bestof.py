@@ -566,7 +566,7 @@ class BestOf(commands.Cog):
 
 # Fetch image from TMDB using TMDB ID
 def fetch_image_from_tmdb(tmdb_id):
-    tmdb_api_key = "e547e17d4e91f3e62a571655cd1ccaff"
+    tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
     url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
     response = requests.get(url)
     if response.status_code == 200:
@@ -578,7 +578,7 @@ def fetch_image_from_tmdb(tmdb_id):
 
 # Fetch image from TMDB using TVDB ID
 def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
-    tmdb_api_key = "e547e17d4e91f3e62a571655cd1ccaff"
+    tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
     find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&language=en-US&external_source=tvdb_id"
     response = requests.get(find_url)
     if response.status_code == 200:
