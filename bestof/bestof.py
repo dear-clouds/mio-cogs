@@ -203,6 +203,7 @@ class BestOf(commands.Cog):
                     break
 
         # Confirm with the user that the correct item was found
+        user_mention = interaction.user.mention
         embed = discord.Embed(
             title=item.title,
             url=plex_web_url,
