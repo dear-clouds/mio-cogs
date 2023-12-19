@@ -285,7 +285,7 @@ class BestOf(commands.Cog):
         user_data = await self.config.all_users()
         votes = self.process_votes(user_data)
 
-        embed, data_exists = self.create_topvotes_embed(votes, year)
+        embed, data_exists = await self.create_topvotes_embed(votes, year)
         message = await ctx.send(embed=embed)
 
         # Add navigation reactions if applicable
@@ -340,6 +340,11 @@ class BestOf(commands.Cog):
         user_data = await self.config.all_users()
         votes = self.process_votes(user_data)
 
+        if not votes.get(year, {}):
+            # If no votes for the year, add a message to the embed
+            embed.description = "No votes have been registered for this year yet."
+            return embed, {'previous': False, 'next': False}
+
         # Loop through each allowed library
         for library_name in allowed_libraries:
             if library_name in votes.get(year, {}):
@@ -354,7 +359,7 @@ class BestOf(commands.Cog):
                 embed.add_field(
                     name=f"**{library_name}**",
                     value=f"[{top_title}]({plex_web_url}) - Votes: {top_title_votes}",
-                    inline=False
+                    inline=True
                 )
 
         return embed
