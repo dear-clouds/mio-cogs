@@ -461,7 +461,7 @@ class BestOf(commands.Cog):
         role_color = ctx.author.top_role.color if ctx.author.top_role.name != "@everyone" else discord.Color.default()
 
         embed = discord.Embed(title=f"{ctx.author.display_name}'s Favorites", color=role_color)
-        embed.set_thumbnail(url=ctx.author.avatar_url)
+        embed.set_thumbnail(url=ctx.author.avatar.url)
 
         if movies_list:
             embed.add_field(name="Movies", value="\n".join(movies_list), inline=False)
