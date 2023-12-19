@@ -239,45 +239,41 @@ class BestOf(commands.Cog):
         # Retrieve user's existing votes
         user_votes = await self.config.user(interaction.user).votes()
 
-        # Check if the user has already voted for a title in the given library for the current year
-        user_votes = await self.config.user(interaction.user).votes()
+        # Create a key that combines the library name and the year
+        library_year_key = f"{library_name}-{item_year}"
 
-        # Check if the user has already voted for a title in the given library for the current year
-        existing_vote = user_votes.get(library_name, {})
-        print(f"DEBUG: Existing vote for {library_name}: {existing_vote}")  # Debug statement
+        # Check if the user has already voted for a title in the given library for the specified year
+        existing_vote = user_votes.get(library_year_key, None)
 
         if existing_vote:
             existing_title = existing_vote.get('title')
-            existing_year = existing_vote.get('year')
 
             # Check if the user is trying to vote for the same title and year
-            if existing_title == title and existing_year == item_year:
-                print("DEBUG: User is attempting to replace an existing vote.")  # Debug statement
-
+            if existing_title == title:
                 # Send a confirmation message
-                await interaction.followup.send(
-                    f"You have already voted for '{existing_title}' in '{library_name}' for the year {existing_year}. "
+                confirm_message = await interaction.followup.send(
+                    f"You have already voted for '{existing_title}' in '{library_name}' for the year {item_year}. "
                     "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
                 )
 
-        # Check for user response
-        def check_confirm(m):
-            return m.author == interaction.user and m.channel == interaction.channel
+                # Check for user response
+                def check_confirm(m):
+                    return m.author == interaction.user and m.channel == interaction.channel
 
-        try:
-            confirm_response = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
-            if confirm_response.content.lower() != 'yes':
-                await interaction.followup.send("Vote not replaced.", ephemeral=True)
-                return
-        except asyncio.TimeoutError:
-            await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
-            return
+                try:
+                    confirm_response = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
+                    if confirm_response.content.lower() != 'yes':
+                        await interaction.followup.send("Vote not replaced.", ephemeral=True)
+                        return
+                except asyncio.TimeoutError:
+                    await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
+                    return
 
         # Add or update the vote
-        user_votes[library_name] = {'title': title, 'item_key': item_key, 'year': item_year}
+        user_votes[library_year_key] = {'title': title, 'item_key': item_key, 'year': item_year}
         await self.config.user(interaction.user).votes.set(user_votes)
 
-        await interaction.followup.send(f"Vote for `{title}` ({item_year}) recorded.", ephemeral=True)
+        await interaction.followup.send(f"Vote for `{title}` ({item_year}) in '{library_name}' recorded.", ephemeral=True)
 
     async def get_top_titles(self):
         # Get data for all users who voted
@@ -285,19 +281,25 @@ class BestOf(commands.Cog):
         votes = {}
         for uid, data in user_data.items():
             if 'votes' in data:
-                for library_name, titles in data['votes'].items():
-                    for title in titles.items():
-                        if library_name not in votes:
-                            votes[library_name] = {}
-                        if title not in votes[library_name]:
-                            votes[library_name][title] = 0
-                        votes[library_name][title] += 1
+                for library_year_key, vote_info in data['votes'].items():
+                    library, year = library_year_key.rsplit('-', 1)
+                    title = vote_info['title']
+                    if library not in votes:
+                        votes[library] = {}
+                    if year not in votes[library]:
+                        votes[library][year] = {}
+                    if title not in votes[library][year]:
+                        votes[library][year][title] = 0
+                    votes[library][year][title] += 1
 
-        # Get the most voted title for each library
+        # Get the most voted title for each library and year
         top_titles = {}
-        for library_name, titles in votes.items():
-            top_title = max(titles, key=titles.get)
-            top_titles[library_name] = top_title
+        for library, years in votes.items():
+            for year, titles in years.items():
+                top_title = max(titles, key=titles.get)
+                if library not in top_titles:
+                    top_titles[library] = {}
+                top_titles[library][year] = top_title
 
         return top_titles
 
@@ -380,10 +382,13 @@ class BestOf(commands.Cog):
         }
 
         for library_name in allowed_libraries:
-            library_votes = votes.get(library_name, {})
-            for (title, vote_year, key), count in library_votes.items():
-                if vote_year == year:
-                    plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={key}"
+            library_year_key = f"{library_name}-{year}"
+            if library_year_key in votes:
+                library_votes = votes[library_year_key]
+                for title_key, count in library_votes.items():
+                    # Extract the title and key
+                    title, item_key = title_key
+                    plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
                     embed.add_field(
                         name=f"**{library_name}**",
                         value=f"[{title}]({plex_web_url}) - Votes: {count}",
