@@ -238,13 +238,14 @@ class BestOf(commands.Cog):
         
         # Retrieve the current votes for the user
         user_votes = await self.config.user(interaction.user).votes()
-
+        
         # Use the title's release year as the key
         year_str = str(item_year)
-        library_votes = user_votes.get(year_str, {}).get(library_name, {})
+        year_votes = user_votes.get(year_str, {})
+        library_vote = year_votes.get(library_name, {})
 
-        if library_votes:
-            existing_title = library_votes.get('title')
+        if library_vote:
+            existing_title = library_vote.get('title')
             if existing_title == title:
                 # Send a confirmation message
                 confirm_message = await interaction.followup.send(
@@ -266,7 +267,8 @@ class BestOf(commands.Cog):
                     return
 
         # Add or update the vote
-        user_votes.setdefault(year_str, {}).setdefault(library_name, {'title': title, 'item_key': item_key})
+        year_votes[library_name] = {'title': title, 'item_key': item_key}
+        user_votes[year_str] = year_votes
         await self.config.user(interaction.user).votes.set(user_votes)
 
         await interaction.followup.send(f"Vote for `{title}` ({item_year}) recorded.", ephemeral=True)
@@ -305,7 +307,7 @@ class BestOf(commands.Cog):
         all_years = {vote_info.get('year') for _, user_votes in user_data.items() for vote_info in user_votes.get('votes', {}).values() if vote_info.get('year') is not None}
 
         embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
-        if not data_exists:
+        if not embed.fields:
             await ctx.send(embed=embed)
             return
 
@@ -352,7 +354,7 @@ class BestOf(commands.Cog):
     async def create_topvotes_embed(self, votes, year, ctx, all_years):
         default_color = await ctx.embed_color()
         server_name = ctx.guild.name
-        embed = discord.Embed(title=f"{server_name}'s Best of {year}", color=default_color or discord.Color.default())
+        embed = discord.Embed(title=f"🏆 {server_name}'s Best of {year}", color=default_color or discord.Color.default())
 
         allowed_libraries = await self.config.allowed_libraries()
 
