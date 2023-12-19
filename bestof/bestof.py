@@ -495,9 +495,9 @@ class BestOf(commands.Cog):
         if random_background_url:
             embed.set_image(url=random_background_url)
         
-        # Define the buttons
-        vote_button = VoteButton()
-        tops_button = TopsButton()
+        # Define the buttons and pass the cog instance
+        vote_button = VoteButton(self)
+        tops_button = TopsButton(self)
 
         # Create a View and add the buttons
         view = discord.ui.View()
@@ -552,19 +552,23 @@ class LibrarySelect(Select):
             await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
 
 class VoteButton(discord.ui.Button):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cog, *args, **kwargs):
         super().__init__(*args, **kwargs, label="Vote", emoji="🗳️", style=discord.ButtonStyle.grey)
+        self.cog = cog
 
     async def callback(self, interaction: discord.Interaction):
-        # Simulate the vote command
+        await interaction.response.defer()  # Acknowledge the interaction
         ctx = await self.cog.bot.get_context(interaction.message)
         await ctx.invoke(self.cog.vote)
 
+
 class TopsButton(discord.ui.Button):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cog, *args, **kwargs):
         super().__init__(*args, **kwargs, label="Tops", emoji="🏆", style=discord.ButtonStyle.primary)
+        self.cog = cog
 
     async def callback(self, interaction: discord.Interaction):
-        # Simulate the topvotes command
+        await interaction.response.defer()  # Acknowledge the interaction
         ctx = await self.cog.bot.get_context(interaction.message)
         await ctx.invoke(self.cog.topvotes)
+
