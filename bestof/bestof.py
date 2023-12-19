@@ -26,6 +26,7 @@ class BestOf(commands.Cog):
         
         try:
             self.plex = PlexServer(plex_server_url, plex_server_auth_token)
+            self.server_name = self.plex.friendlyName
         except Exception as e:
             print(f"Failed to connect to Plex server: {e}")
 
@@ -350,7 +351,8 @@ class BestOf(commands.Cog):
         
     async def create_topvotes_embed(self, votes, year, ctx, all_years):
         default_color = await ctx.embed_color()
-        embed = discord.Embed(title=f"Top Titles for {year}", color=default_color or discord.Color.default())
+        server_name = self.plex.friendlyName
+        embed = discord.Embed(title=f"{server_name}'s Best of {year}", color=default_color or discord.Color.default())
         
         allowed_libraries = await self.config.allowed_libraries()
 
@@ -390,8 +392,8 @@ class BestOf(commands.Cog):
                     votes[library_name][(title, year, key)] += 1
         return votes
 
-    @commands.command()
-    @commands.is_owner()
+    @bestof.command(name='createcollection')
+    @commands.has_guild_permissions(administrator=True)
     async def createcollection(self, ctx):
         """Create the Plex collection."""
         # Get the most voted titles
