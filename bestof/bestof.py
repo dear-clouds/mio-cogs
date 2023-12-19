@@ -433,9 +433,12 @@ class BestOf(commands.Cog):
         
     @commands.command()
     async def fav(self, ctx):
-        user_votes = await self.config.user(ctx.author).votes()
+        # If no member is mentioned, use the author of the message
+        member = member or ctx.author
+
+        user_votes = await self.config.user(member).votes()
         if not user_votes:
-            await ctx.send("You haven't voted for any titles yet.")
+            await ctx.send(f"{member.display_name} hasn't voted for any titles yet.")
             return
 
         movies_list = []
@@ -459,15 +462,15 @@ class BestOf(commands.Cog):
                         continue  # Ignore errors and continue to the next item
 
         # Get the user's highest role color
-        role_color = ctx.author.top_role.color if ctx.author.top_role.name != "@everyone" else discord.Color.default()
+        role_color = member.top_role.color if member.top_role.name != "@everyone" else discord.Color.default()
 
-        embed = discord.Embed(title=f"{ctx.author.display_name}'s Favorites", color=role_color)
-        embed.set_thumbnail(url=ctx.author.avatar.url)
+        embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites", color=role_color)
+        embed.set_thumbnail(url=member.avatar.url)
 
         if movies_list:
-            embed.add_field(name="Movies", value="\n".join(movies_list), inline=False)
+            embed.add_field(name="Movies", value="\n".join(movies_list), inline=True)
         if shows_list:
-            embed.add_field(name="Dramas", value="\n".join(shows_list), inline=False)
+            embed.add_field(name="Dramas", value="\n".join(shows_list), inline=True)
 
         # Random background image from one of the voted titles
         random_background_url = await self.get_random_background(user_votes)
