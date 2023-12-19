@@ -466,12 +466,16 @@ class BestOf(commands.Cog):
 
         embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites", color=role_color)
         embed.set_thumbnail(url=member.avatar.url)
+        
+            # Shuffle the movies_list and shows_list
+        random.shuffle(movies_list)
+        random.shuffle(shows_list)
 
-        if movies_list:
-            embed.add_field(name="Movies", value="\n".join(movies_list), inline=True)
         if shows_list:
             embed.add_field(name="Shows", value="\n".join(shows_list), inline=True)
-
+        if movies_list:
+            embed.add_field(name="Movies", value="\n".join(movies_list), inline=True)
+        
         # Random background image from one of the voted titles
         random_background_url = await self.get_random_background(user_votes)
         if random_background_url:
