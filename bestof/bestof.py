@@ -620,6 +620,7 @@ class TopsButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer()  # Acknowledge the interaction
         ctx = await self.cog.bot.get_context(interaction.message)
+
         await ctx.invoke(self.cog.topvotes)
         
 class NextButton(discord.ui.Button):
