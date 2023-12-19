@@ -527,42 +527,42 @@ class BestOf(commands.Cog):
             # Send the embed with the View
             await ctx.send(embed=embed, view=view)
 
-async def get_random_background(self, user_votes):
-    backgrounds = []
-    for year, libraries in user_votes.items():
-        for library_name, vote_info in libraries.items():
-            if vote_info:
-                item_key = vote_info.get('item_key')
-                try:
-                    item = self.plex.fetchItem(item_key)
+    async def get_random_background(self, user_votes):
+        backgrounds = []
+        for year, libraries in user_votes.items():
+            for library_name, vote_info in libraries.items():
+                if vote_info:
+                    item_key = vote_info.get('item_key')
+                    try:
+                        item = self.plex.fetchItem(item_key)
 
-                    if 'Anime' in library_name and hasattr(item, 'guid'):
-                        # For Anime library using TVDB ID
-                        tvdb_id = item.guid.split('//')[1].split('?')[0]  # Extract TVDB ID
-                        print(f"Fetching image for Anime with TVDB ID: {tvdb_id}")
-                        image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
-                        if image_url:
-                            print(f"Found image URL for Anime: {image_url}")
-                            backgrounds.append(image_url)
+                        if 'Anime' in library_name and hasattr(item, 'guid'):
+                            # For Anime library using TVDB ID
+                            tvdb_id = item.guid.split('//')[1].split('?')[0]  # Extract TVDB ID
+                            print(f"Fetching image for Anime with TVDB ID: {tvdb_id}")
+                            image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
+                            if image_url:
+                                print(f"Found image URL for Anime: {image_url}")
+                                backgrounds.append(image_url)
+                            else:
+                                print(f"No image found for Anime with TVDB ID: {tvdb_id}")
                         else:
-                            print(f"No image found for Anime with TVDB ID: {tvdb_id}")
-                    else:
-                        # For non-Anime libraries (assuming TMDB ID)
-                        tmdb_id = item.guid.split('//')[1].split('?')[0]  # Extract TMDB ID
-                        print(f"Fetching image for title with TMDB ID: {tmdb_id}")
-                        image_url = fetch_image_from_tmdb(tmdb_id)
-                        if image_url:
-                            print(f"Found image URL: {image_url}")
-                            backgrounds.append(image_url)
-                        else:
-                            print(f"No image found for title with TMDB ID: {tmdb_id}")
-                except Exception as e:
-                    print(f"Error fetching image: {e}")
-                    continue  # Ignore errors and continue to the next item
+                            # For non-Anime libraries (assuming TMDB ID)
+                            tmdb_id = item.guid.split('//')[1].split('?')[0]  # Extract TMDB ID
+                            print(f"Fetching image for title with TMDB ID: {tmdb_id}")
+                            image_url = fetch_image_from_tmdb(tmdb_id)
+                            if image_url:
+                                print(f"Found image URL: {image_url}")
+                                backgrounds.append(image_url)
+                            else:
+                                print(f"No image found for title with TMDB ID: {tmdb_id}")
+                    except Exception as e:
+                        print(f"Error fetching image: {e}")
+                        continue  # Ignore errors and continue to the next item
 
-    chosen_image = random.choice(backgrounds) if backgrounds else None
-    print(f"Chosen image URL: {chosen_image}")
-    return chosen_image
+        chosen_image = random.choice(backgrounds) if backgrounds else None
+        print(f"Chosen image URL: {chosen_image}")
+        return chosen_image
 
 # Fetch image from TMDB using TMDB ID
 def fetch_image_from_tmdb(tmdb_id):
