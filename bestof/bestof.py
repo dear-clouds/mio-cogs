@@ -292,7 +292,7 @@ class BestOf(commands.Cog):
             if collection.title == collection_title:
                 return collection
         return None
-
+        
     @commands.command()
     async def topvotes(self, ctx, specified_year: Optional[int] = None):
         current_year = datetime.today().year
@@ -349,71 +349,19 @@ class BestOf(commands.Cog):
             except asyncio.TimeoutError:
                 break
         
-    @commands.command()
-    async def topvotes(self, ctx, specified_year: Optional[int] = None):
-        current_year = datetime.today().year
-        year = specified_year if specified_year and specified_year < current_year else current_year - 1
-
-        user_data = await self.config.all_users()
-        votes = self.process_votes(user_data)
-
-        # Extract all years that have votes
-        all_years = {vote_info.get('year') for _, user_votes in user_data.items() for vote_info in user_votes.get('votes', {}).values()}
-
-        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
-        if not data_exists:
-            await ctx.send(embed=embed)
-            return
-
-        message = await ctx.send(embed=embed)
-
-        # Add navigation reactions if applicable
-        if data_exists['previous']:
-            await message.add_reaction('⬅️')
-        if data_exists['next']:
-            await message.add_reaction('➡️')
-
-        # Reaction check
-        def check(reaction, user):
-            return user == ctx.author and str(reaction.emoji) in ['⬅️', '➡️'] and reaction.message.id == message.id
-
-        # Reaction listener
-        while True:
-            try:
-                reaction, user = await self.bot.wait_for('reaction_add', timeout=60.0, check=check)
-                if str(reaction.emoji) == '⬅️' and data_exists['previous']:
-                    year -= 1
-                elif str(reaction.emoji) == '➡️' and data_exists['next']:
-                    year += 1
-
-                embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
-                await message.edit(embed=embed)
-
-                # Update reactions
-                if data_exists['previous']:
-                    await message.add_reaction('⬅️')
-                else:
-                    await message.clear_reaction('⬅️')
-
-                if data_exists['next']:
-                    await message.add_reaction('➡️')
-                else:
-                    await message.clear_reaction('➡️')
-
-                await message.remove_reaction(reaction.emoji, user)
-
-            except asyncio.TimeoutError:
-                break
-        
     async def create_topvotes_embed(self, votes, year, ctx, all_years):
         default_color = await ctx.embed_color()
         server_name = ctx.guild.name
         embed = discord.Embed(title=f"{server_name}'s Best of {year}", color=default_color or discord.Color.default())
-        
+
         allowed_libraries = await self.config.allowed_libraries()
 
-        min_year = min(all_years, default=datetime.today().year - 1)
-        max_year = max(all_years, default=datetime.today().year - 1)
+        # Handle empty all_years set
+        if all_years:
+            min_year = min(all_years, default=datetime.today().year - 1)
+            max_year = max(all_years, default=datetime.today().year - 1)
+        else:
+            min_year = max_year = datetime.today().year - 1
 
         data_exists = {
             'previous': year > min_year,
