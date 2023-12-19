@@ -537,25 +537,23 @@ class BestOf(commands.Cog):
                     try:
                         print(f"Fetching item with key: {item_key}")
                         item = self.plex.fetchItem(item_key)
-                        guid = item.guid
-                        print(f"GUID: {guid}")
-                        if 'tvdb-' in guid:
-                            tvdb_id = guid.split('tvdb-')[1].split('?')[0]
-                            print(f"Fetching image for TVDB ID: {tvdb_id}")
-                            image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
-                        elif 'movie/' in guid or 'show/' in guid:
-                            tmdb_id = guid.split('/')[1].split('?')[0]
-                            print(f"Fetching image for TMDB ID: {tmdb_id}")
-                            image_url = fetch_image_from_tmdb(tmdb_id)
+                        for guid in item.guids:
+                            if 'tmdb://' in guid.id:
+                                tmdb_id = guid.id.split('tmdb://')[1]
+                                print(f"Fetching image for TMDB ID: {tmdb_id}")
+                                image_url = fetch_image_from_tmdb(tmdb_id)
+                                if image_url:
+                                    backgrounds.append(image_url)
+                                    break
+                            elif 'tvdb://' in guid.id:
+                                tvdb_id = guid.id.split('tvdb://')[1]
+                                print(f"Fetching image for TVDB ID: {tvdb_id}")
+                                image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
+                                if image_url:
+                                    backgrounds.append(image_url)
+                                    break
                         else:
-                            print(f"Unrecognized GUID format: {guid}")
-                            continue
-
-                        if image_url:
-                            print(f"Image URL found: {image_url}")
-                            backgrounds.append(image_url)
-                        else:
-                            print(f"No image found for GUID: {guid}")
+                            print(f"No recognized GUIDs found for item: {item_key}")
 
                     except Exception as e:
                         print(f"Error fetching image for {item_key}: {e}")
@@ -565,32 +563,28 @@ class BestOf(commands.Cog):
         print(f"Chosen image URL: {chosen_image}")
         return chosen_image
 
-def extract_id(guid):
-    # Extracts numeric ID from a Plex guid
-    if 'tvdb-' in guid:
-        return guid.split('tvdb-')[1].split('?')[0], 'tvdb'
-    elif 'movie/' in guid or 'show/' in guid:
-        return guid.split('/')[1].split('?')[0], 'tmdb'
-    return None, None
-
 def fetch_image_from_tmdb(tmdb_id):
     tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
+    # URL for fetching movie/TV show details from TMDB
     url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}" if 'backdrop_path' in data else None
+        if 'backdrop_path' in data:
+            return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}"
     print(f"TMDB Fetch Error: Status Code {response.status_code}, URL: {url}")
     return None
 
 def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
     tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
+    # URL for finding TMDB ID using TVDB ID
     find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&external_source=tvdb_id"
     response = requests.get(find_url)
     if response.status_code == 200:
         data = response.json()
-        tmdb_id = data['tv_results'][0]['id'] if data.get('tv_results') else None
-        return fetch_image_from_tmdb(tmdb_id) if tmdb_id else None
+        if 'tv_results' in data and data['tv_results']:
+            tmdb_id = data['tv_results'][0]['id']
+            return fetch_image_from_tmdb(tmdb_id)  # Fetch image using TMDB ID
     print(f"TMDB TVDB Fetch Error: Status Code {response.status_code}, URL: {find_url}")
     return None
 
