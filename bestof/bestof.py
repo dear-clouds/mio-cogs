@@ -447,19 +447,21 @@ class BestOf(commands.Cog):
         
     @commands.command()
     async def favs(self, ctx, *, member: discord.Member = None):
-        # Explicitly check if member is None and assign ctx.author if it is
-        member = ctx.author if member is None else member
-
+        member = member or ctx.author
         user_votes = await self.config.user(member).votes()
         if not user_votes:
             await ctx.send(f"{member.display_name} hasn't voted for any titles yet.")
             return
 
-        movies_list = []
-        shows_list = []
-        anime_list = []
-        variety_list = []
+        # Prepare lists for each category
+        categories = {
+            "Anime": [],
+            "Variety Shows": [],
+            "Dramas": [],
+            "Movies": []
+        }
 
+        # Populate the lists and shuffle them
         for year, libraries in user_votes.items():
             for library_name, vote_info in libraries.items():
                 if vote_info:
@@ -467,61 +469,52 @@ class BestOf(commands.Cog):
                     item_key = vote_info.get('item_key')
                     plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
                     formatted_title = f"- [{title}]({plex_web_url})"
+                    # Categorize the titles
+                    if 'Anime' in library_name:
+                        categories["Anime"].append(formatted_title)
+                    elif 'Variety Show' in library_name:
+                        categories["Variety Shows"].append(formatted_title)
+                    elif item.type == 'movie':
+                        categories["Movies"].append(formatted_title)
+                    elif item.type == 'show':
+                        categories["Dramas"].append(formatted_title)
 
-                    try:
-                        item = self.plex.fetchItem(item_key)
-                        formatted_title = f"- [{title}]({plex_web_url})"
+        for category in categories.values():
+            random.shuffle(category)
 
-                        # Categorize based on library name
-                        if 'Anime' in library_name:
-                            anime_list.append(formatted_title)
-                        elif 'Variety Shows' in library_name:
-                            variety_list.append(formatted_title)
-                        elif item.type == 'movie':
-                            movies_list.append(formatted_title)
-                        elif item.type == 'show':
-                            shows_list.append(formatted_title)
-                    except Exception as e:
-                        continue
+        # Paginate if more than 40 titles
+        total_titles = sum(len(lst) for lst in categories.values())
+        if total_titles > 40:
+            pages = paginate_titles(categories, titles_per_page=10)
+            view = PaginatedView(pages, member=member, role_color=role_color, cog=self)
+            embed = view.create_embed_for_page(0, member, role_color, self.get_random_background(user_votes))
+            await ctx.send(embed=embed, view=view)
+        else:
+            # Create a single embed for all titles when total is 40 or fewer
+            embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites", color=member.top_role.color)
+            embed.set_thumbnail(url=member.avatar.url)
 
-        # Get the user's highest role color
-        role_color = member.top_role.color if member.top_role.name != "@everyone" else discord.Color.default()
+            # Add fields to embed based on the lists
+            for category_name, title_list in categories.items():
+                if title_list:
+                    embed.add_field(name=category_name, value="\n".join(title_list), inline=True)
+            
+            # Random background image from one of the voted titles
+            random_background_url = await self.get_random_background(user_votes)
+            if random_background_url:
+                embed.set_image(url=random_background_url)
+            
+            # Define the buttons and pass the cog instance
+            vote_button = VoteButton(self)
+            tops_button = TopsButton(self)
 
-        embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites", color=role_color)
-        embed.set_thumbnail(url=member.avatar.url)
-        
-            # Shuffle the movies_list and shows_list
-        random.shuffle(movies_list)
-        random.shuffle(shows_list)
-        random.shuffle(anime_list)
-        random.shuffle(variety_list)
+            # Create a View and add the buttons
+            view = discord.ui.View()
+            view.add_item(vote_button)
+            view.add_item(tops_button)
 
-        # Add fields to embed based on the lists
-        if anime_list:
-            embed.add_field(name="Anime", value="\n".join(anime_list), inline=True)
-        if shows_list:
-            embed.add_field(name="Dramas", value="\n".join(shows_list), inline=True)
-        if movies_list:
-            embed.add_field(name="Movies", value="\n".join(movies_list), inline=True)
-        if variety_list:
-            embed.add_field(name="Variety Shows", value="\n".join(variety_list), inline=True)
-        
-        # Random background image from one of the voted titles
-        random_background_url = await self.get_random_background(user_votes)
-        if random_background_url:
-            embed.set_image(url=random_background_url)
-        
-        # Define the buttons and pass the cog instance
-        vote_button = VoteButton(self)
-        tops_button = TopsButton(self)
-
-        # Create a View and add the buttons
-        view = discord.ui.View()
-        view.add_item(vote_button)
-        view.add_item(tops_button)
-
-        # Send the embed with the View
-        await ctx.send(embed=embed, view=view)
+            # Send the embed with the View
+            await ctx.send(embed=embed, view=view)
 
     async def get_random_background(self, user_votes):
         backgrounds = []
@@ -537,6 +530,42 @@ class BestOf(commands.Cog):
                         continue  # Ignore errors and continue to the next item
 
         return random.choice(backgrounds) if backgrounds else None
+    
+def paginate_titles(lists, titles_per_page=10):
+    total_pages = max((len(lst) + titles_per_page - 1) // titles_per_page for lst in lists.values())
+    pages = []
+
+    for i in range(total_pages):
+        page_content = {}
+        for category, titles in lists.items():
+            start_index = i * titles_per_page
+            end_index = start_index + titles_per_page
+            page_content[category] = titles[start_index:end_index]
+        pages.append(page_content)
+    return pages
+
+class PaginatedView(discord.ui.View):
+    def __init__(self, pages, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pages = pages
+        self.current_page = 0
+        self.add_item(PreviousButton())
+        self.add_item(NextButton())
+
+    async def update_embed(self, interaction: discord.Interaction):
+        embed = self.create_embed_for_page(self.current_page)
+        await interaction.response.edit_message(embed=embed)
+
+    def create_embed_for_page(self, page_number):
+        page = self.pages[page_number]
+        embed = discord.Embed(title=f"❤️ {self.member.display_name}'s Favorites", color=self.role_color)
+        
+        for category, titles in page.items():
+            if titles:
+                embed.add_field(name=category, value="\n".join(titles), inline=True)
+
+        embed.set_footer(text=f"Page {page_number + 1}/{len(self.pages)}")
+        return embed
         
 class LibrarySelect(Select):
     def __init__(self, libraries, cog, *args, **kwargs):
@@ -587,4 +616,20 @@ class TopsButton(discord.ui.Button):
         await interaction.response.defer()  # Acknowledge the interaction
         ctx = await self.cog.bot.get_context(interaction.message)
         await ctx.invoke(self.cog.topvotes)
+        
+class NextButton(discord.ui.Button):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, label="Next", style=discord.ButtonStyle.green)
+
+    async def callback(self, interaction: discord.Interaction):
+        self.view.current_page += 1
+        await self.view.update_embed(interaction)
+
+class PreviousButton(discord.ui.Button):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, label="Previous", style=discord.ButtonStyle.green)
+
+    async def callback(self, interaction: discord.Interaction):
+        self.view.current_page -= 1
+        await self.view.update_embed(interaction)
 
