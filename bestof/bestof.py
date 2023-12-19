@@ -285,7 +285,11 @@ class BestOf(commands.Cog):
         user_data = await self.config.all_users()
         votes = self.process_votes(user_data)
 
-        embed, data_exists = await self.create_topvotes_embed(votes, year)
+        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx)
+        if not data_exists:
+            await ctx.send(embed=embed)
+            return
+
         message = await ctx.send(embed=embed)
 
         # Add navigation reactions if applicable
@@ -307,7 +311,7 @@ class BestOf(commands.Cog):
                 elif str(reaction.emoji) == '➡️' and data_exists['next']:
                     year += 1
 
-                embed, data_exists = self.create_topvotes_embed(votes, year, ctx)
+                embed, data_exists = await self.create_topvotes_embed(votes, year, ctx)  # Updated call
                 await message.edit(embed=embed)
 
                 # Update reactions
