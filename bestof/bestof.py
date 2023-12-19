@@ -242,7 +242,8 @@ class BestOf(commands.Cog):
                 return
 
         # Add or update the vote
-        user_votes[library_name] = title
+        vote_data = {'year': current_year, 'library': library_name, 'title': title}
+        user_votes.append(vote_data)
         await self.config.user(interaction.user).votes.set(user_votes)
 
         await interaction.followup.send(f"Vote for `{item.title}` recorded.", ephemeral=True)
@@ -362,10 +363,11 @@ class BestOf(commands.Cog):
         votes = {}
         for uid, user_votes in user_data.items():
             for vote in user_votes.get('votes', []):
-                print(f"Vote: {vote}")
-                year, library_name, title = vote['year'], vote['library'], vote['title']
-                votes.setdefault(year, {}).setdefault(library_name, {}).setdefault(title, 0)
-                votes[year][library_name][title] += 1
+                # Ensure that 'vote' is a dictionary with the expected keys
+                if isinstance(vote, dict) and all(key in vote for key in ['year', 'library', 'title']):
+                    year, library_name, title = vote['year'], vote['library'], vote['title']
+                    votes.setdefault(year, {}).setdefault(library_name, {}).setdefault(title, 0)
+                    votes[year][library_name][title] += 1
         return votes
 
     @commands.command()
