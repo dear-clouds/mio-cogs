@@ -182,6 +182,20 @@ class BestOf(commands.Cog):
         item_key = item.key
         item_title = item.title
         item_year = item.year if item.year else "Unknown Year"
+        
+        # Get poster URL by fetching from TMDB or TVDB
+        poster_url = None
+        for guid in item.guids:
+            if 'tmdb://' in guid.id:
+                tmdb_id = guid.id.split('tmdb://')[1]
+                poster_url = fetch_image_from_tmdb(tmdb_id)
+                if poster_url:
+                    break
+            elif 'tvdb://' in guid.id:
+                tvdb_id = guid.id.split('tvdb://')[1]
+                poster_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
+                if poster_url:
+                    break
 
         # Get current year
         current_year = datetime.now().year
@@ -192,7 +206,6 @@ class BestOf(commands.Cog):
 
         # Confirm with the user that the correct item was found
         plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
-        poster_url = self.plex.url(item.thumb, includeToken=False) if item.thumb else None
         title_year = item.year if item.year else "Unknown Year"
         
         # Get the member's highest role with a non-default color
