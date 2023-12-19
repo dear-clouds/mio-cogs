@@ -588,14 +588,15 @@ def fetch_image_from_tmdb(tmdb_id, is_movie=True):
 
 def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
     tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
-    # URL for finding TMDB ID using TVDB ID
     find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&external_source=tvdb_id"
     response = requests.get(find_url)
     if response.status_code == 200:
         data = response.json()
         if 'tv_results' in data and data['tv_results']:
             tmdb_id = data['tv_results'][0]['id']
-            return fetch_image_from_tmdb(tmdb_id)  # Fetch image using TMDB ID
+            # Check if it is a TV show or a movie
+            is_movie = 'movie' in data['tv_results'][0]
+            return fetch_image_from_tmdb(tmdb_id, is_movie=is_movie)
     print(f"TMDB TVDB Fetch Error: Status Code {response.status_code}, URL: {find_url}")
     return None
 
