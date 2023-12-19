@@ -157,7 +157,7 @@ class BestOf(commands.Cog):
             libraries = self.plex.library.sections()
         except Exception as e:
             await interaction.followup.send("Failed to retrieve libraries from Plex server.")
-            return  # Early return on error
+            return
 
         library = next((lib for lib in libraries if lib.title == library_name), None)
         if not library:
@@ -171,7 +171,7 @@ class BestOf(commands.Cog):
                 item = next((movie for movie in library.search(title) if movie.type == 'movie'), None)
         except Exception as e:
             await interaction.followup.send("Failed to search for the title in Plex library.")
-            return  # Early return on error
+            return
 
         if not item:
             await interaction.followup.send("Item not found.")
@@ -180,7 +180,6 @@ class BestOf(commands.Cog):
         item_key = item.key
         item_year = item.year if item.year else "Unknown Year"
 
-        # Get current year
         current_year = datetime.now().year
         
         if item.year is None or item.year >= current_year:
