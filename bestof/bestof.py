@@ -295,13 +295,15 @@ class BestOf(commands.Cog):
     @commands.command()
     async def topvotes(self, ctx, specified_year: Optional[int] = None):
         current_year = datetime.today().year
-        # If a specific year is provided, use it; otherwise, default to the previous year
         year = specified_year if specified_year and specified_year < current_year else current_year - 1
 
         user_data = await self.config.all_users()
         votes = self.process_votes(user_data)
 
-        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx)
+        # Extract all years that have votes
+        all_years = {vote_info.get('year') for _, user_votes in user_data.items() for vote_info in user_votes.get('votes', {}).values()}
+
+        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
         if not data_exists:
             await ctx.send(embed=embed)
             return
@@ -346,16 +348,10 @@ class BestOf(commands.Cog):
             except asyncio.TimeoutError:
                 break
         
-    async def create_topvotes_embed(self, votes, year, ctx):
+    async def create_topvotes_embed(self, votes, year, ctx, all_years):
         default_color = await ctx.embed_color()
-        embed = discord.Embed(
-            title=f"Top Titles for {year}",
-            color=default_color or discord.Color.default()
-        )
+        embed = discord.Embed(title=f"Top Titles for {year}", color=default_color or discord.Color.default())
 
-        allowed_libraries = await self.config.allowed_libraries()
-
-        all_years = {vote_info.get('year') for user_votes in user_data.values() for vote_info in user_votes.get('votes', {}).values()}
         min_year = min(all_years, default=datetime.today().year - 1)
         max_year = max(all_years, default=datetime.today().year - 1)
 
