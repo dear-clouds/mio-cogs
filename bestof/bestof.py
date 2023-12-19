@@ -255,7 +255,7 @@ class BestOf(commands.Cog):
                 print("DEBUG: User is attempting to replace an existing vote.")  # Debug statement
 
                 # Send a confirmation message
-                confirm_message = await interaction.followup.send(
+                await interaction.followup.send(
                     f"You have already voted for '{existing_title}' in '{library_name}' for the year {existing_year}. "
                     "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
                 )
@@ -265,8 +265,8 @@ class BestOf(commands.Cog):
             return m.author == interaction.user and m.channel == interaction.channel
 
         try:
-            confirm_message = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
-            if confirm_message.content.lower() != 'yes':
+            confirm_response = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
+            if confirm_response.content.lower() != 'yes':
                 await interaction.followup.send("Vote not replaced.", ephemeral=True)
                 return
         except asyncio.TimeoutError:
