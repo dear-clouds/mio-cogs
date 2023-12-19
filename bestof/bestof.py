@@ -184,11 +184,6 @@ class BestOf(commands.Cog):
         plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
         poster_url = self.plex.url(item.thumb, includeToken=True) if item.thumb else None
         title_year = item.year if item.year else "Unknown Year"
-        user_mention = interaction.user.mention  # Get the mention string for the user
-
-        # Send a message mentioning the user
-        mention_message = f"{user_mention}, please confirm the title."
-        await interaction.followup.send(mention_message)
 
         # Creating the embed
         embed = discord.Embed(
@@ -201,6 +196,11 @@ class BestOf(commands.Cog):
         # Add poster URL if available
         if poster_url:
             embed.set_thumbnail(url=poster_url)
+            
+        # Send a message mentioning the user along with the embed
+        user_mention = interaction.user.mention  # Get the mention string for the user
+        mention_message = f"{user_mention}, please confirm the title."
+        await interaction.followup.send(content=mention_message, embed=embed)
 
         msg = await interaction.followup.send(embed=embed)
         await msg.add_reaction("✅")
@@ -362,6 +362,7 @@ class BestOf(commands.Cog):
         votes = {}
         for uid, user_votes in user_data.items():
             for vote in user_votes.get('votes', []):
+                print(f"Vote: {vote}")
                 year, library_name, title = vote['year'], vote['library'], vote['title']
                 votes.setdefault(year, {}).setdefault(library_name, {}).setdefault(title, 0)
                 votes[year][library_name][title] += 1
