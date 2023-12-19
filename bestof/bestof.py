@@ -202,33 +202,27 @@ class BestOf(commands.Cog):
                     role_color = role.color
                     break
 
-        # Creating the embed
+        # Confirm with the user that the correct item was found
         embed = discord.Embed(
             title=item.title,
             url=plex_web_url,
-            description=f"{item.summary}\n\n📌 **You will be voting for this title for the year {title_year}.**",
+            description=f"{item.summary}\n\n📌 **You will be voting for this title for the year {item_year}.**",
             color=role_color
         )
-
-        # Add poster URL if available
         if poster_url:
             embed.set_thumbnail(url=poster_url)
 
-        # Send a message mentioning the user along with the embed
-        user_mention = interaction.user.mention  # Get the mention string for the user
         mention_message = f"{user_mention}, please confirm the title."
-        
-        # Send the embed and add reactions to the same message
         msg = await interaction.followup.send(content=mention_message, embed=embed)
         await msg.add_reaction("✅")
         await msg.add_reaction("❌")
 
         # Reaction check
-        def check(reaction, user):
+        def reaction_check(reaction, user):
             return user == interaction.user and reaction.message.id == msg.id and str(reaction.emoji) in ["✅", "❌"]
 
         try:
-            reaction, _ = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
+            reaction, _ = await self.bot.wait_for('reaction_add', timeout=30.0, check=reaction_check)
             if str(reaction.emoji) == "❌":
                 await interaction.followup.send("Vote canceled. Make sure it's the exact same title on the Plex server.", ephemeral=True)
                 return
@@ -238,32 +232,28 @@ class BestOf(commands.Cog):
 
         # Retrieve user's existing votes
         user_votes = await self.config.user(interaction.user).votes()
+        existing_vote = user_votes.get(library_name, {})
 
         # Check if the user has already voted for a title in the given library for the current year
-        existing_vote = user_votes.get(library_name, {})
-        if existing_vote.get('title') == title and existing_vote.get('year') == current_year:
-            # Send a warning message
-            await interaction.followup.send(
-                f"You have already voted for the title '{title}' in this library for the year {current_year}. "
-                "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
-            )
-
-            def check_confirm(m):
+        if existing_vote.get('title') == title and existing_vote.get('year') == datetime.now().year:
+            await interaction.followup.send(f"You have already voted for '{title}'. Do you want to replace your vote? (Yes/No)")
+            
+            # Confirmation check
+            def confirm_check(m):
                 return m.author == interaction.user and m.channel == interaction.channel
-
+            
             try:
-                confirm_response = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
+                confirm_response = await self.bot.wait_for('message', check=confirm_check, timeout=60.0)
                 if confirm_response.content.lower() != 'yes':
                     await interaction.followup.send("Vote not replaced.", ephemeral=True)
                     return
             except asyncio.TimeoutError:
-                await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
+                await interaction.followup.send("No response received. Vote not replaced.", ephemeral=True)
                 return
 
         # Add or update the vote
         user_votes[library_name] = {'title': title, 'item_key': item_key, 'year': item_year}
         await self.config.user(interaction.user).votes.set(user_votes)
-
         await interaction.followup.send(f"Vote for `{title}` ({item_year}) recorded.", ephemeral=True)
 
     async def get_top_titles(self):
