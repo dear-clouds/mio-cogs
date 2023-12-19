@@ -179,6 +179,7 @@ class BestOf(commands.Cog):
             return
         
         item_key = item.key
+        item_title = item.title
         item_year = item.year if item.year else "Unknown Year"
 
         # Get current year
@@ -268,7 +269,7 @@ class BestOf(commands.Cog):
                     return
 
         # Add or update the vote
-        year_votes[library_name] = {'title': title, 'item_key': item_key}
+        year_votes[library_name] = {'title': item_title, 'item_key': item_key}
         user_votes[year_str] = year_votes
         await self.config.user(interaction.user).votes.set(user_votes)
 
