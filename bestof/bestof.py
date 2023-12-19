@@ -316,16 +316,13 @@ class BestOf(commands.Cog):
             await ctx.send("No votes have been registered.")
             return
 
-        min_year = min(all_years)
-        max_year = max(all_years)
-
-        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx)
+        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
         message = await ctx.send(embed=embed)
 
         # Add navigation reactions if applicable
-        if year > min_year:
+        if year > min(all_years):
             await message.add_reaction('⬅️')
-        if year < max_year:
+        if year < max(all_years):
             await message.add_reaction('➡️')
 
         # Reaction check
@@ -360,7 +357,7 @@ class BestOf(commands.Cog):
             except asyncio.TimeoutError:
                 break
         
-    async def create_topvotes_embed(self, votes, year, ctx):
+    async def create_topvotes_embed(self, votes, year, ctx, all_years):
         default_color = await ctx.embed_color()
         server_name = ctx.guild.name
         embed = discord.Embed(title=f"🏆 {server_name}'s Best of {year}", color=default_color)
@@ -381,14 +378,13 @@ class BestOf(commands.Cog):
         if not embed.fields:
             embed.description = "No votes have been registered for this year."
 
-        # Determine if previous or next data exists
         data_exists = {
             'previous': year > min(all_years),
             'next': year < max(all_years)
         }
 
         return embed, data_exists
-    
+
     def process_votes(self, user_data):
         votes = {}
         for user_id, years in user_data.items():
