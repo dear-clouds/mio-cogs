@@ -285,7 +285,7 @@ class BestOf(commands.Cog):
         user_data = await self.config.all_users()
         votes = self.process_votes(user_data)
 
-        embed, data_exists = await self.create_topvotes_embed(votes, year)
+        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx)
         if not data_exists:
             await ctx.send(embed=embed)
             return
@@ -330,8 +330,8 @@ class BestOf(commands.Cog):
             except asyncio.TimeoutError:
                 break
         
-    async def create_topvotes_embed(self, votes, year):
-        default_color = await self.bot.get_embed_color()
+    async def create_topvotes_embed(self, votes, year, ctx):
+        default_color = await ctx.embed_color()
         embed = discord.Embed(
             title=f"Top Titles for {year}",
             color=default_color or discord.Color.default()
