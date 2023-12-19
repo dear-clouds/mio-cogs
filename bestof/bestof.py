@@ -145,7 +145,7 @@ class BestOf(commands.Cog):
         view = View()
         view.add_item(select_menu)
 
-        await ctx.send("**Select a Library to Vote In. You can only vote for one title per library and per year.**", view=view)
+        await ctx.send("Select a Library to Vote In. **You can only vote for one title per library and per year.**", view=view)
 
     async def add_vote(self, interaction, library_name: str, title: str, is_tv_show: bool = False):
         # Ensure the Plex server has been initialized
@@ -367,15 +367,28 @@ class BestOf(commands.Cog):
         allowed_libraries = await self.config.allowed_libraries()
 
         year_str = str(year)
+        
+        # Dictionary to keep track of libraries already included
+        included_libraries = {}
+
         for library_name in allowed_libraries:
             if year_str in votes and library_name in votes[year_str]:
+                # Check if the library has already been included
+                if library_name in included_libraries:
+                    continue
+
+                titles_combined = []  # List to combine titles from the same library
+
                 for (title, item_key), count in votes[year_str][library_name].items():
                     plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
-                    embed.add_field(
-                        name=f"**{library_name}**",
-                        value=f"[{title}]({plex_web_url}) - Votes: {count}",
-                        inline=True
-                    )
+                    titles_combined.append(f"[{title}]({plex_web_url}) - Votes: {count}")
+
+                # Combine titles and add them to the embed
+                titles_combined_text = "\n".join(titles_combined)
+                embed.add_field(name=f"**{library_name}**", value=titles_combined_text, inline=True)
+
+                # Mark the library as included
+                included_libraries[library_name] = True
 
         if not embed.fields:
             embed.description = "No votes have been registered for this year."
