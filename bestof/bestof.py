@@ -548,19 +548,17 @@ class BestOf(commands.Cog):
                 if vote_info:
                     item_key = vote_info.get('item_key')
                     try:
-                        print(f"Fetching item with key: {item_key}")
                         item = self.plex.fetchItem(item_key)
+                        is_movie = item.type == 'movie'
                         for guid in item.guids:
                             if 'tmdb://' in guid.id:
                                 tmdb_id = guid.id.split('tmdb://')[1]
-                                print(f"Fetching image for TMDB ID: {tmdb_id}")
-                                image_url = fetch_image_from_tmdb(tmdb_id)
+                                image_url = fetch_image_from_tmdb(tmdb_id, is_movie=is_movie)
                                 if image_url:
                                     backgrounds.append(image_url)
                                     break
                             elif 'tvdb://' in guid.id:
                                 tvdb_id = guid.id.split('tvdb://')[1]
-                                print(f"Fetching image for TVDB ID: {tvdb_id}")
                                 image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
                                 if image_url:
                                     backgrounds.append(image_url)
@@ -576,15 +574,15 @@ class BestOf(commands.Cog):
         print(f"Chosen image URL: {chosen_image}")
         return chosen_image
 
-def fetch_image_from_tmdb(tmdb_id):
+def fetch_image_from_tmdb(tmdb_id, is_movie=True):
     tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
-    # URL for fetching movie/TV show details from TMDB
-    url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
+    base_url = "https://api.themoviedb.org/3/"
+    # Determine if it's a movie or a TV show
+    url = f"{base_url}{'movie' if is_movie else 'tv'}/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        if 'backdrop_path' in data:
-            return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}"
+        return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}" if 'backdrop_path' in data else None
     print(f"TMDB Fetch Error: Status Code {response.status_code}, URL: {url}")
     return None
 
