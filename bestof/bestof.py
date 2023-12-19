@@ -373,40 +373,34 @@ class BestOf(commands.Cog):
 
         allowed_libraries = await self.config.allowed_libraries()
 
-        min_year = min(all_years, default=datetime.today().year - 1)
-        max_year = max(all_years, default=datetime.today().year - 1)
-
-        data_exists = {
-            'previous': year > min_year,
-            'next': year < max_year and year < datetime.today().year - 1
-        }
-
-        # Aggregate votes for the specified year
+        # Initialize a dictionary to aggregate the votes
         aggregated_votes = {}
-        for library_name in allowed_libraries:
-            library_year_key = f"{library_name}-{year}"
-            for user_id, user_data in votes.items():
-                user_votes = user_data.get('votes', {})
-                vote_info = user_votes.get(library_year_key)
-                if vote_info:
+
+        # Iterate through each user's votes and aggregate them
+        for user_id, user_data in votes.items():
+            user_votes = user_data.get('votes', {})
+            for library_year_key, vote_info in user_votes.items():
+                library, vote_year = library_year_key.rsplit('-', 1)
+                if library in allowed_libraries and int(vote_year) == year:
                     title = vote_info['title']
                     item_key = vote_info['item_key']
-                    aggregated_key = (library_name, title, item_key)
+                    aggregated_key = (library, title, item_key)
                     aggregated_votes[aggregated_key] = aggregated_votes.get(aggregated_key, 0) + 1
 
-        # Create embed fields for aggregated votes
+        # Create embed fields for each aggregated vote
         for (library, title, item_key), count in aggregated_votes.items():
             plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
             embed.add_field(
-                name=f"**{library}**",
+                name=f"**{library} - {year}**",
                 value=f"[{title}]({plex_web_url}) - Votes: {count}",
                 inline=True
             )
 
+        # Check if there are any votes to display
         if not embed.fields:
             embed.description = "No votes have been registered for this year."
 
-        return embed, data_exists
+        return embed, {'previous': year > min(all_years), 'next': year < max(all_years)}
 
     def process_votes(self, user_data):
         votes = {}
