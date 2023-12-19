@@ -356,31 +356,27 @@ class BestOf(commands.Cog):
 
         allowed_libraries = await self.config.allowed_libraries()
 
-        # Handle empty all_years set
         if all_years:
-            min_year = min(all_years, default=datetime.today().year - 1)
-            max_year = max(all_years, default=datetime.today().year - 1)
+            min_year = min(all_years)
+            max_year = max(all_years)
         else:
             min_year = max_year = datetime.today().year - 1
 
         data_exists = {
             'previous': year > min_year,
-            'next': year < max_year and year < datetime.today().year - 1
+            'next': year < max_year
         }
 
+        year_str = str(year)
         for library_name in allowed_libraries:
-            library_votes = votes.get(year, {}).get(library_name, {})
-
-            # Diagnostic log
-            print(f"DEBUG: Library Votes for {library_name} in {year}: {library_votes}")
-
-            for (title, item_key), count in library_votes.items():
-                plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
-                embed.add_field(
-                    name=f"**{library_name}**",
-                    value=f"[{title}]({plex_web_url}) - Votes: {count}",
-                    inline=True
-                )
+            if year_str in votes and library_name in votes[year_str]:
+                for (title, item_key), count in votes[year_str][library_name].items():
+                    plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
+                    embed.add_field(
+                        name=f"**{library_name}**",
+                        value=f"[{title}]({plex_web_url}) - Votes: {count}",
+                        inline=True
+                    )
 
         if not embed.fields:
             embed.description = "No votes have been registered for this year."
