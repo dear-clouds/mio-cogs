@@ -351,8 +351,7 @@ class BestOf(commands.Cog):
         
     async def create_topvotes_embed(self, votes, year, ctx, all_years):
         default_color = await ctx.embed_color()
-        server_name = self.plex.friendlyName
-        embed = discord.Embed(title=f"{server_name}'s Best of {year}", color=default_color or discord.Color.default())
+        embed = discord.Embed(title=f"{self.server_name}'s Best of {year}", color=default_color or discord.Color.default())
         
         allowed_libraries = await self.config.allowed_libraries()
 
