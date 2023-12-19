@@ -186,6 +186,9 @@ class BestOf(commands.Cog):
         if item.year is None or item.year >= current_year:
             await interaction.followup.send(f"You can only vote for titles from previous years, not from {current_year}.", ephemeral=True)
             return
+        
+        # Retrieve the current votes for the user
+        user_votes = await self.config.user(interaction.user).votes()
 
         # Confirm with the user that the correct item was found
         plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
