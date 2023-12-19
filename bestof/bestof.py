@@ -238,14 +238,15 @@ class BestOf(commands.Cog):
         
         # Retrieve the current votes for the user
         user_votes = await self.config.user(interaction.user).votes()
-
+        
         # Use the title's release year as the key
         year_str = str(item_year)
-        library_votes = user_votes.get(year_str, {}).get(library_name, {})
+        year_votes = user_votes.get(year_str, {})
+        library_vote = year_votes.get(library_name, {})
 
-        if library_votes:
-            existing_title = library_votes.get('title')
-            if existing_title == title:
+        if library_vote:
+            existing_title = library_vote.get('title')
+            if existing_title:
                 # Send a confirmation message
                 confirm_message = await interaction.followup.send(
                     f"You have already voted for **{existing_title}** in **{library_name}** for the year **{item_year}**. "
@@ -266,7 +267,8 @@ class BestOf(commands.Cog):
                     return
 
         # Add or update the vote
-        user_votes.setdefault(year_str, {}).setdefault(library_name, {'title': title, 'item_key': item_key})
+        year_votes[library_name] = {'title': title, 'item_key': item_key}
+        user_votes[year_str] = year_votes
         await self.config.user(interaction.user).votes.set(user_votes)
 
         await interaction.followup.send(f"Vote for `{title}` ({item_year}) recorded.", ephemeral=True)
@@ -326,9 +328,9 @@ class BestOf(commands.Cog):
             try:
                 reaction, user = await self.bot.wait_for('reaction_add', timeout=60.0, check=check)
                 if str(reaction.emoji) == '⬅️' and data_exists['previous']:
-                    year = max(year - 1, min_year)
+                    year -= 1
                 elif str(reaction.emoji) == '➡️' and data_exists['next']:
-                    year = min(year + 1, max_year)
+                    year += 1
 
                 embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
                 await message.edit(embed=embed)
