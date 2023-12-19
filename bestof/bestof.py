@@ -535,60 +535,44 @@ class BestOf(commands.Cog):
                     item_key = vote_info.get('item_key')
                     try:
                         item = self.plex.fetchItem(item_key)
-
-                        if 'Anime' in library_name and hasattr(item, 'guid'):
-                            # For Anime library using TVDB ID
-                            tvdb_id = item.guid.split('//')[1].split('?')[0]  # Extract TVDB ID
-                            print(f"Fetching image for Anime with TVDB ID: {tvdb_id}")
-                            image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
-                            if image_url:
-                                print(f"Found image URL for Anime: {image_url}")
-                                backgrounds.append(image_url)
-                            else:
-                                print(f"No image found for Anime with TVDB ID: {tvdb_id}")
-                        else:
-                            # For non-Anime libraries (assuming TMDB ID)
-                            tmdb_id = item.guid.split('//')[1].split('?')[0]  # Extract TMDB ID
-                            print(f"Fetching image for title with TMDB ID: {tmdb_id}")
-                            image_url = fetch_image_from_tmdb(tmdb_id)
-                            if image_url:
-                                print(f"Found image URL: {image_url}")
-                                backgrounds.append(image_url)
-                            else:
-                                print(f"No image found for title with TMDB ID: {tmdb_id}")
+                        guid_id, id_type = extract_id(item.guid)
+                        if id_type == 'tvdb':
+                            image_url = fetch_image_from_tmdb_with_tvdb_id(guid_id)
+                        elif id_type == 'tmdb':
+                            image_url = fetch_image_from_tmdb(guid_id)
+                        if image_url:
+                            backgrounds.append(image_url)
                     except Exception as e:
                         print(f"Error fetching image: {e}")
                         continue  # Ignore errors and continue to the next item
 
-        chosen_image = random.choice(backgrounds) if backgrounds else None
-        print(f"Chosen image URL: {chosen_image}")
-        return chosen_image
+        return random.choice(backgrounds) if backgrounds else None
 
-# Fetch image from TMDB using TMDB ID
+def extract_id(guid):
+    # Extracts numeric ID from a Plex guid
+    if 'tvdb-' in guid:
+        return guid.split('tvdb-')[1].split('?')[0], 'tvdb'
+    elif 'movie/' in guid or 'show/' in guid:
+        return guid.split('/')[1].split('?')[0], 'tmdb'
+    return None, None
+
 def fetch_image_from_tmdb(tmdb_id):
-    try:
-        tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
-        url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}" if data.get('backdrop_path') else None
-    except Exception as e:
-        print(f"Error in fetch_image_from_tmdb: {e}")
+    tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
+    url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}" if 'backdrop_path' in data else None
     return None
 
-# Fetch image from TMDB using TVDB ID
 def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
-    try:
-        tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
-        find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&external_source=tvdb_id"
-        response = requests.get(find_url)
-        if response.status_code == 200:
-            data = response.json()
-            tmdb_id = data['tv_results'][0]['id'] if data.get('tv_results') else None
-            return fetch_image_from_tmdb(tmdb_id) if tmdb_id else None
-    except Exception as e:
-        print(f"Error in fetch_image_from_tmdb_with_tvdb_id: {e}")
+    tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
+    find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&external_source=tvdb_id"
+    response = requests.get(find_url)
+    if response.status_code == 200:
+        data = response.json()
+        tmdb_id = data['tv_results'][0]['id'] if data.get('tv_results') else None
+        return fetch_image_from_tmdb(tmdb_id) if tmdb_id else None
     return None
 
 def paginate_titles(lists, titles_per_page=10):
