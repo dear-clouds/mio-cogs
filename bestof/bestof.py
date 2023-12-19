@@ -370,7 +370,7 @@ class BestOf(commands.Cog):
         default_color = await ctx.embed_color()
         server_name = ctx.guild.name
         embed = discord.Embed(title=f"{server_name}'s Best of {year}", color=default_color or discord.Color.default())
-        
+
         allowed_libraries = await self.config.allowed_libraries()
 
         min_year = min(all_years, default=datetime.today().year - 1)
@@ -384,9 +384,7 @@ class BestOf(commands.Cog):
         for library_name in allowed_libraries:
             library_year_key = f"{library_name}-{year}"
             library_votes = votes.get(library_year_key, {})
-            for title_info, count in library_votes.items():
-                title = title_info['title']
-                item_key = title_info['item_key']
+            for (title, item_key), count in library_votes.items():
                 plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
                 embed.add_field(
                     name=f"**{library_name}**",
