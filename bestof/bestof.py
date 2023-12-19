@@ -461,23 +461,28 @@ class BestOf(commands.Cog):
             "Movies": []
         }
 
-        # Populate the lists and shuffle them
+        # Populate the lists
         for year, libraries in user_votes.items():
             for library_name, vote_info in libraries.items():
                 if vote_info:
                     title = vote_info.get('title')
                     item_key = vote_info.get('item_key')
                     plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
-                    formatted_title = f"- [{title}]({plex_web_url})"
-                    # Categorize the titles
-                    if 'Anime' in library_name:
-                        categories["Anime"].append(formatted_title)
-                    elif 'Variety Show' in library_name:
-                        categories["Variety Shows"].append(formatted_title)
-                    elif item.type == 'movie':
-                        categories["Movies"].append(formatted_title)
-                    elif item.type == 'show':
-                        categories["Dramas"].append(formatted_title)
+                    
+                    try:
+                        item = self.plex.fetchItem(item_key)
+                        formatted_title = f"- [{title}]({plex_web_url})"
+                        # Categorize the titles based on the library name and item type
+                        if 'Anime' in library_name:
+                            categories["Anime"].append(formatted_title)
+                        elif 'Variety Show' in library_name:
+                            categories["Variety Shows"].append(formatted_title)
+                        elif item.type == 'movie':
+                            categories["Movies"].append(formatted_title)
+                        elif item.type == 'show':
+                            categories["Dramas"].append(formatted_title)
+                    except Exception as e:
+                        continue  # Ignore errors and continue to the next item
 
         for category in categories.values():
             random.shuffle(category)
