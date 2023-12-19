@@ -7,6 +7,7 @@ from plexapi.server import PlexServer
 from datetime import datetime
 from typing import Optional
 import random
+import requests
 
 class BestOf(commands.Cog):
     def __init__(self, bot):
@@ -359,8 +360,13 @@ class BestOf(commands.Cog):
             except asyncio.TimeoutError:
                 break
         
-    async def create_topvotes_embed(self, votes, year, ctx, all_years):
-        default_color = await ctx.embed_color()
+    async def create_topvotes_embed(self, votes, year, ctx_or_interaction, all_years):
+        # Check if ctx_or_interaction is a context or an interaction
+        if isinstance(ctx_or_interaction, commands.Context):
+            default_color = await ctx_or_interaction.embed_color()
+        elif isinstance(ctx_or_interaction, discord.Interaction):
+            default_color = discord.Color.default()
+            
         server_name = ctx.guild.name
         embed = discord.Embed(title=f"🏆 {server_name}'s Best of {year}", color=default_color)
 
@@ -529,12 +535,44 @@ class BestOf(commands.Cog):
                     item_key = vote_info.get('item_key')
                     try:
                         item = self.plex.fetchItem(item_key)
-                        if item.art:
-                            backgrounds.append(self.plex.url(item.art, includeToken=False))
+
+                        if 'Anime' in library_name and hasattr(item, 'guid'):
+                            # For Anime library using TVDB ID
+                            tvdb_id = item.guid.split('//')[1].split('?')[0]  # Extract TVDB ID
+                            image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
+                            if image_url:
+                                backgrounds.append(image_url)
+                        else:
+                            # For non-Anime libraries (assuming TMDB ID)
+                            tmdb_id = item.guid.split('//')[1].split('?')[0]  # Extract TMDB ID
+                            image_url = fetch_image_from_tmdb(tmdb_id)
+                            if image_url:
+                                backgrounds.append(image_url)
                     except Exception as e:
                         continue  # Ignore errors and continue to the next item
 
         return random.choice(backgrounds) if backgrounds else None
+    
+def fetch_image_from_tmdb(tmdb_id):
+    tmdb_api_key = "e547e17d4e91f3e62a571655cd1ccaff"
+    url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
+    response = requests.get(url)
+    data = response.json()
+    # Fetch poster or background image URL
+    image_url = f"https://image.tmdb.org/t/p/original{data['backdrop_path']}"
+    return image_url
+
+def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
+    tmdb_api_key = "e547e17d4e91f3e62a571655cd1ccaff"
+    find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&language=en-US&external_source=tvdb_id"
+    response = requests.get(find_url)
+    data = response.json()
+
+    if 'tv_results' in data and data['tv_results']:
+        tmdb_id = data['tv_results'][0]['id']
+        # Fetch the image using TMDB ID
+        return fetch_image_from_tmdb(tmdb_id)
+    return None
     
 def paginate_titles(lists, titles_per_page=10):
     total_pages = max((len(lst) + titles_per_page - 1) // titles_per_page for lst in lists.values())
@@ -618,7 +656,7 @@ class TopsButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         # Invoke the hybrid command directly with the interaction
-        await self.cog.topvotes.callback(self.cog, interaction)
+        await self.cog.topvotes(interaction, None)
         
 class NextButton(discord.ui.Button):
     def __init__(self, *args, **kwargs):
