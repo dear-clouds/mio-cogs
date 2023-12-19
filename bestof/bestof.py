@@ -408,30 +408,22 @@ class LibrarySelect(Select):
             self.add_option(label=library_name)
 
     async def callback(self, interaction: discord.Interaction):
-        # Get the selected library name
         selected_library = self.values[0]
-
-        # Ensure the Plex server has been initialized
         if not self.cog.plex:
             await interaction.response.send_message("The Plex server has not been configured.", ephemeral=True)
             return
 
-        # Get the library object from the Plex server
         library = self.cog.plex.library.section(selected_library)
         is_tv_show = library.type == "show"
 
-        # Ask the user to type the title they want to vote for
         await interaction.response.send_message(f"Selected library: **{selected_library}**. Please type the title you want to vote for. **It must be the exact title on Plex.**")
 
-        # Wait for the user's response
         def message_check(m):
             return m.author == interaction.user and m.channel == interaction.channel
 
         try:
             title_message = await self.cog.bot.wait_for("message", timeout=60.0, check=message_check)
+            title = title_message.content
+            await self.cog.add_vote(interaction, selected_library, title, is_tv_show=is_tv_show)
         except asyncio.TimeoutError:
             await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
-            return
-
-        title = title_message.content
-        await self.cog.add_vote(interaction, selected_library, title, is_tv_show=is_tv_show)
