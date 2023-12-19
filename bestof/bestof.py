@@ -369,15 +369,18 @@ class BestOf(commands.Cog):
         }
 
         for library_name in allowed_libraries:
-            library_votes = votes.get(library_name, {})
-            for (title, vote_year, key), count in library_votes.items():
-                if vote_year == year:
-                    plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={key}"
-                    embed.add_field(
-                        name=f"**{library_name}**",
-                        value=f"[{title}]({plex_web_url}) - Votes: {count}",
-                        inline=True
-                    )
+            library_votes = votes.get(year, {}).get(library_name, {})
+
+            # Diagnostic log
+            print(f"DEBUG: Library Votes for {library_name} in {year}: {library_votes}")
+
+            for (title, item_key), count in library_votes.items():
+                plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
+                embed.add_field(
+                    name=f"**{library_name}**",
+                    value=f"[{title}]({plex_web_url}) - Votes: {count}",
+                    inline=True
+                )
 
         if not embed.fields:
             embed.description = "No votes have been registered for this year."
