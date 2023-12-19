@@ -369,7 +369,7 @@ class BestOf(commands.Cog):
                     plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={key}"
                     embed.add_field(
                         name=f"**{library_name}**",
-                        value=f"[{title} ({vote_year})]({plex_web_url}) - Votes: {count}",
+                        value=f"[{title}]({plex_web_url}) - Votes: {count}",
                         inline=True
                     )
 
