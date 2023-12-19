@@ -297,7 +297,7 @@ class BestOf(commands.Cog):
                 return collection
         return None
         
-    @commands.command()
+    @commands.hybrid_command(name="topvotes", description="Show top voted titles")
     async def topvotes(self, ctx, specified_year: Optional[int] = None):
         current_year = datetime.today().year
         year = specified_year if specified_year and specified_year < current_year else current_year - 1
@@ -589,7 +589,7 @@ class LibrarySelect(Select):
         library = self.cog.plex.library.section(selected_library)
         is_tv_show = library.type == "show"
 
-        await interaction.response.send_message(f"Selected library: **{selected_library}**. Please type the title you want to vote for. **It must be the exact title on Plex.**")
+        await interaction.response.send_message(f"Selected library: **{selected_library}**. Please type the title you want to vote for. **It must be the exact title on Plex.**", ephemeral=True)
 
         def message_check(m):
             return m.author == interaction.user and m.channel == interaction.channel
@@ -611,22 +611,14 @@ class VoteButton(discord.ui.Button):
         ctx = await self.cog.bot.get_context(interaction.message)
         await ctx.invoke(self.cog.vote)
 
-
 class TopsButton(discord.ui.Button):
     def __init__(self, cog, *args, **kwargs):
         super().__init__(*args, **kwargs, label="Tops", emoji="🏆", style=discord.ButtonStyle.primary)
         self.cog = cog
 
     async def callback(self, interaction: discord.Interaction):
-        # Creating a new context from the interaction
-        new_ctx = await self.cog.bot.get_context(interaction.message)
-        new_ctx.interaction = interaction
-
-        await self.cog.topvotes(new_ctx)
-
-        # Acknowledge the interaction if not already done
-        if not interaction.response.is_done():
-            await interaction.response.defer()
+        # Invoke the hybrid command directly with the interaction
+        await self.cog.topvotes.callback(self.cog, interaction)
         
 class NextButton(discord.ui.Button):
     def __init__(self, *args, **kwargs):
