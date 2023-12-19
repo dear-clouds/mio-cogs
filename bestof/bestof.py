@@ -527,37 +527,37 @@ class BestOf(commands.Cog):
             # Send the embed with the View
             await ctx.send(embed=embed, view=view)
 
-    async def get_random_background(self, user_votes):
-        backgrounds = []
-        for year, libraries in user_votes.items():
-            for library_name, vote_info in libraries.items():
-                if vote_info:
-                    item_key = vote_info.get('item_key')
-                    try:
-                        item = self.plex.fetchItem(item_key)
-                        guid = item.guid
-                        if 'tvdb-' in guid:
-                            tvdb_id = guid.split('tvdb-')[1].split('?')[0]
-                            image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
-                        elif 'movie/' in guid or 'show/' in guid:
-                            tmdb_id = guid.split('/')[1].split('?')[0]
-                            image_url = fetch_image_from_tmdb(tmdb_id)
-                        else:
-                            print(f"Unrecognized GUID format: {guid}")
-                            continue
-
-                        if image_url:
-                            backgrounds.append(image_url)
-                        else:
-                            print(f"No image found for GUID: {guid}")
-
-                    except Exception as e:
-                        print(f"Error fetching image for {item_key}: {e}")
+async def get_random_background(self, user_votes):
+    backgrounds = []
+    for year, libraries in user_votes.items():
+        for library_name, vote_info in libraries.items():
+            if vote_info:
+                item_key = vote_info.get('item_key')
+                try:
+                    item = self.plex.fetchItem(item_key)
+                    guid = item.guid
+                    if 'tvdb-' in guid:
+                        tvdb_id = guid.split('tvdb-')[1].split('?')[0]
+                        image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
+                    elif 'movie/' in guid or 'show/' in guid:
+                        tmdb_id = guid.split('/')[1].split('?')[0]
+                        image_url = fetch_image_from_tmdb(tmdb_id)
+                    else:
+                        print(f"Unrecognized GUID format: {guid}")
                         continue
 
-        chosen_image = random.choice(backgrounds) if backgrounds else None
-        print(f"Chosen image URL: {chosen_image}")
-        return chosen_image
+                    if image_url:
+                        backgrounds.append(image_url)
+                    else:
+                        print(f"No image found for GUID: {guid}")
+
+                except Exception as e:
+                    print(f"Error fetching image for {item_key}: {e}")
+                    continue
+
+    chosen_image = random.choice(backgrounds) if backgrounds else None
+    print(f"Chosen image URL: {chosen_image}")
+    return chosen_image
 
 def extract_id(guid):
     # Extracts numeric ID from a Plex guid
