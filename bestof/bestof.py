@@ -6,6 +6,7 @@ from discord.ui import View, Select
 from plexapi.server import PlexServer
 from datetime import datetime
 from typing import Optional
+import random
 
 class BestOf(commands.Cog):
     def __init__(self, bot):
