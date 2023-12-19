@@ -438,14 +438,16 @@ class BestOf(commands.Cog):
     
     def process_votes(self, user_data):
         votes = {}
-        for user_id, user_votes in user_data.items():
-            for year, libraries in user_votes.get('votes', {}).items():
+        for user_id, years in user_data.items():
+            for year, libraries in years.get('votes', {}).items():
                 for library_name, vote_info in libraries.items():
-                    title = vote_info.get('title')
-                    item_key = vote_info.get('item_key')
-                    if title and item_key:
-                        votes.setdefault(year, {}).setdefault(library_name, {}).setdefault((title, item_key), 0)
-                        votes[year][library_name][(title, item_key)] += 1
+                    # Ensure vote_info is a dictionary
+                    if isinstance(vote_info, dict):
+                        title = vote_info.get('title')
+                        item_key = vote_info.get('item_key')
+                        if title and item_key:
+                            votes.setdefault(year, {}).setdefault(library_name, {}).setdefault((title, item_key), 0)
+                            votes[year][library_name][(title, item_key)] += 1
         return votes
 
     @bestof.command(name='createcollection')
