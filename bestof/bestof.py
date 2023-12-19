@@ -502,7 +502,7 @@ class BestOf(commands.Cog):
         if shows_list:
             embed.add_field(name="Dramas", value="\n".join(shows_list), inline=True)
         if movies_list:
-            embed.add_field(name="Movies", value="\n".join(movies_list), inline=True)
+            embed.add_field(name="Movies", value="\n".join(movies_list), inline=False)
         if variety_list:
             embed.add_field(name="Variety Shows", value="\n".join(variety_list), inline=True)
         
