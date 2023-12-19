@@ -235,13 +235,13 @@ class BestOf(commands.Cog):
         existing_vote = user_votes.get(library_name, {})
 
         # Check if the user has already voted for a title in the given library for the current year
-        if existing_vote.get('title') == title and existing_vote.get('year') == datetime.now().year:
+        if existing_vote and existing_vote.get('title') == title and existing_vote.get('year') == datetime.now().year:
             await interaction.followup.send(f"You have already voted for '{title}'. Do you want to replace your vote? (Yes/No)")
-            
+
             # Confirmation check
             def confirm_check(m):
                 return m.author == interaction.user and m.channel == interaction.channel
-            
+
             try:
                 confirm_response = await self.bot.wait_for('message', check=confirm_check, timeout=60.0)
                 if confirm_response.content.lower() != 'yes':
