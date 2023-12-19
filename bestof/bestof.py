@@ -259,20 +259,19 @@ class BestOf(commands.Cog):
                     f"You have already voted for '{existing_title}' in '{library_name}' for the year {existing_year}. "
                     "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
                 )
-                await interaction.followup.send(confirm_message, ephemeral=True)
 
-            # Check for user response
-            def check_confirm(m):
-                return m.author == interaction.user and m.channel == interaction.channel
+        # Check for user response
+        def check_confirm(m):
+            return m.author == interaction.user and m.channel == interaction.channel
 
-            try:
-                confirm_response = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
-                if confirm_response.content.lower() != 'yes':
-                    await interaction.followup.send("Vote not replaced.", ephemeral=True)
-                    return
-            except asyncio.TimeoutError:
-                await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
+        try:
+            confirm_message = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
+            if confirm_message.content.lower() != 'yes':
+                await interaction.followup.send("Vote not replaced.", ephemeral=True)
                 return
+        except asyncio.TimeoutError:
+            await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
+            return
 
         # Add or update the vote
         user_votes[library_name] = {'title': title, 'item_key': item_key, 'year': item_year}
