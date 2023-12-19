@@ -293,9 +293,10 @@ class BestOf(commands.Cog):
         return None
 
     @commands.command()
-    async def topvotes(self, ctx, start_year: int = None):
+    async def topvotes(self, ctx, specified_year: Optional[int] = None):
         current_year = datetime.today().year
-        year = start_year if start_year and start_year < current_year else current_year - 1
+        # If a specific year is provided, use it; otherwise, default to the previous year
+        year = specified_year if specified_year and specified_year < current_year else current_year - 1
 
         user_data = await self.config.all_users()
         votes = self.process_votes(user_data)
@@ -326,7 +327,7 @@ class BestOf(commands.Cog):
                 elif str(reaction.emoji) == '➡️' and data_exists['next']:
                     year += 1
 
-                embed, data_exists = await self.create_topvotes_embed(votes, year, ctx)  # Updated call
+                embed, data_exists = await self.create_topvotes_embed(votes, year, ctx)
                 await message.edit(embed=embed)
 
                 # Update reactions
@@ -354,19 +355,25 @@ class BestOf(commands.Cog):
 
         allowed_libraries = await self.config.allowed_libraries()
 
-        data_exists = {'previous': False, 'next': False}
+        all_years = {vote_info.get('year') for user_votes in user_data.values() for vote_info in user_votes.get('votes', {}).values()}
+        min_year = min(all_years, default=datetime.today().year - 1)
+        max_year = max(all_years, default=datetime.today().year - 1)
+
+        data_exists = {
+            'previous': year > min_year,
+            'next': year < max_year and year < datetime.today().year - 1
+        }
+
         for library_name in allowed_libraries:
-            if library_name in votes:
-                for (title, vote_year, key), count in votes[library_name].items():
-                    if vote_year == year:
-                        plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={key}"
-                        embed.add_field(
-                            name=f"**{library_name}**",
-                            value=f"[{title} ({vote_year})]({plex_web_url}) - Votes: {count}",
-                            inline=True
-                        )
-                        data_exists['previous'] = data_exists['previous'] or vote_year > min_year
-                        data_exists['next'] = data_exists['next'] or vote_year < datetime.today().year
+            library_votes = votes.get(library_name, {})
+            for (title, vote_year, key), count in library_votes.items():
+                if vote_year == year:
+                    plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={key}"
+                    embed.add_field(
+                        name=f"**{library_name}**",
+                        value=f"[{title} ({vote_year})]({plex_web_url}) - Votes: {count}",
+                        inline=True
+                    )
 
         if not embed.fields:
             embed.description = "No votes have been registered for this year."
