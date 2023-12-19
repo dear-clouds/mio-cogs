@@ -430,6 +430,66 @@ class BestOf(commands.Cog):
 
         await ctx.send("Collections created.")
         
+    @commands.command()
+    async def fav(self, ctx):
+        user_votes = await self.config.user(ctx.author).votes()
+        if not user_votes:
+            await ctx.send("You haven't voted for any titles yet.")
+            return
+
+        movies_list = []
+        shows_list = []
+
+        for year, libraries in user_votes.items():
+            for library_name, vote_info in libraries.items():
+                if vote_info:
+                    title = vote_info.get('title')
+                    item_key = vote_info.get('item_key')
+                    plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
+                    formatted_title = f"- [{title}]({plex_web_url})"
+
+                    try:
+                        item = self.plex.fetchItem(item_key)
+                        if item.type == 'movie':
+                            movies_list.append(formatted_title)
+                        elif item.type == 'show':
+                            shows_list.append(formatted_title)
+                    except Exception as e:
+                        continue  # Ignore errors and continue to the next item
+
+        # Get the user's highest role color
+        role_color = ctx.author.top_role.color if ctx.author.top_role.name != "@everyone" else discord.Color.default()
+
+        embed = discord.Embed(title=f"{ctx.author.display_name}'s Favorites", color=role_color)
+        embed.set_thumbnail(url=ctx.author.avatar_url)
+
+        if movies_list:
+            embed.add_field(name="Movies", value="\n".join(movies_list), inline=False)
+        if shows_list:
+            embed.add_field(name="Dramas", value="\n".join(shows_list), inline=False)
+
+        # Random background image from one of the voted titles
+        random_background_url = await self.get_random_background(user_votes)
+        if random_background_url:
+            embed.set_image(url=random_background_url)
+
+        await ctx.send(embed=embed)
+
+    async def get_random_background(self, user_votes):
+        backgrounds = []
+        for year, libraries in user_votes.items():
+            for library_name, vote_info in libraries.items():
+                if vote_info:
+                    item_key = vote_info.get('item_key')
+                    try:
+                        item = self.plex.fetchItem(item_key)
+                        if item.art:
+                            backgrounds.append(self.plex.url(item.art, includeToken=True))
+                    except Exception as e:
+                        continue  # Ignore errors and continue to the next item
+
+        return random.choice(backgrounds) if backgrounds else None
+        
 class LibrarySelect(Select):
     def __init__(self, libraries, cog, *args, **kwargs):
         super().__init__(*args, **kwargs)
