@@ -494,8 +494,18 @@ class BestOf(commands.Cog):
         random_background_url = await self.get_random_background(user_votes)
         if random_background_url:
             embed.set_image(url=random_background_url)
+        
+        # Define the buttons
+        vote_button = VoteButton()
+        tops_button = TopsButton()
 
-        await ctx.send(embed=embed)
+        # Create a View and add the buttons
+        view = discord.ui.View()
+        view.add_item(vote_button)
+        view.add_item(tops_button)
+
+        # Send the embed with the View
+        await ctx.send(embed=embed, view=view)
 
     async def get_random_background(self, user_votes):
         backgrounds = []
@@ -540,3 +550,21 @@ class LibrarySelect(Select):
             await self.cog.add_vote(interaction, selected_library, title, is_tv_show=is_tv_show)
         except asyncio.TimeoutError:
             await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
+
+class VoteButton(discord.ui.Button):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, label="Vote", emoji="🗳️", style=discord.ButtonStyle.grey)
+
+    async def callback(self, interaction: discord.Interaction):
+        # Simulate the vote command
+        ctx = await self.cog.bot.get_context(interaction.message)
+        await ctx.invoke(self.cog.vote)
+
+class TopsButton(discord.ui.Button):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, label="Tops", emoji="🏆", style=discord.ButtonStyle.primary)
+
+    async def callback(self, interaction: discord.Interaction):
+        # Simulate the topvotes command
+        ctx = await self.cog.bot.get_context(interaction.message)
+        await ctx.invoke(self.cog.topvotes)
