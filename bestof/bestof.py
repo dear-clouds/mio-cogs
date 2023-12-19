@@ -191,7 +191,7 @@ class BestOf(commands.Cog):
 
         # Confirm with the user that the correct item was found
         plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
-        poster_url = self.plex.url(item.thumb, includeToken=True) if item.thumb else None
+        poster_url = self.plex.url(item.thumb, includeToken=False) if item.thumb else None
         title_year = item.year if item.year else "Unknown Year"
         
         # Get the member's highest role with a non-default color
@@ -530,7 +530,7 @@ class BestOf(commands.Cog):
                     try:
                         item = self.plex.fetchItem(item_key)
                         if item.art:
-                            backgrounds.append(self.plex.url(item.art, includeToken=True))
+                            backgrounds.append(self.plex.url(item.art, includeToken=False))
                     except Exception as e:
                         continue  # Ignore errors and continue to the next item
 
