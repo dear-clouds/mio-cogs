@@ -329,7 +329,7 @@ class BestOf(commands.Cog):
                 elif str(reaction.emoji) == '➡️' and data_exists['next']:
                     year += 1
 
-                embed, data_exists = await self.create_topvotes_embed(votes, year, ctx)
+                embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
                 await message.edit(embed=embed)
 
                 # Update reactions
