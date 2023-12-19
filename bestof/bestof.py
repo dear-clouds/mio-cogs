@@ -433,8 +433,9 @@ class BestOf(commands.Cog):
         
     @commands.command()
     async def fav(self, ctx):
-        # If no member is mentioned, use the author of the message
-        member = member or ctx.author
+        # Use the provided member or default to the author of the message
+        if member is None:
+            member = ctx.author
 
         user_votes = await self.config.user(member).votes()
         if not user_votes:
@@ -470,7 +471,7 @@ class BestOf(commands.Cog):
         if movies_list:
             embed.add_field(name="Movies", value="\n".join(movies_list), inline=True)
         if shows_list:
-            embed.add_field(name="Dramas", value="\n".join(shows_list), inline=True)
+            embed.add_field(name="Shows", value="\n".join(shows_list), inline=True)
 
         # Random background image from one of the voted titles
         random_background_url = await self.get_random_background(user_votes)
