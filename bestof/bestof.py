@@ -566,30 +566,31 @@ class BestOf(commands.Cog):
 
 # Fetch image from TMDB using TMDB ID
 def fetch_image_from_tmdb(tmdb_id):
-    tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
-    url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        if 'backdrop_path' in data and data['backdrop_path']:
-            image_url = f"https://image.tmdb.org/t/p/original{data['backdrop_path']}"
-            return image_url
+    try:
+        tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
+        url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}" if data.get('backdrop_path') else None
+    except Exception as e:
+        print(f"Error in fetch_image_from_tmdb: {e}")
     return None
 
 # Fetch image from TMDB using TVDB ID
 def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
-    tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
-    find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&language=en-US&external_source=tvdb_id"
-    response = requests.get(find_url)
-    if response.status_code == 200:
-        data = response.json()
-        if 'tv_results' in data and data['tv_results']:
-            tmdb_id = data['tv_results'][0]['id']
-            # Fetch the image using TMDB ID
-            return fetch_image_from_tmdb(tmdb_id)
+    try:
+        tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
+        find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&external_source=tvdb_id"
+        response = requests.get(find_url)
+        if response.status_code == 200:
+            data = response.json()
+            tmdb_id = data['tv_results'][0]['id'] if data.get('tv_results') else None
+            return fetch_image_from_tmdb(tmdb_id) if tmdb_id else None
+    except Exception as e:
+        print(f"Error in fetch_image_from_tmdb_with_tvdb_id: {e}")
     return None
 
-    
 def paginate_titles(lists, titles_per_page=10):
     total_pages = max((len(lst) + titles_per_page - 1) // titles_per_page for lst in lists.values())
     pages = []
