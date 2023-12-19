@@ -457,6 +457,8 @@ class BestOf(commands.Cog):
 
         movies_list = []
         shows_list = []
+        anime_list = []
+        variety_list = []
 
         for year, libraries in user_votes.items():
             for library_name, vote_info in libraries.items():
@@ -468,12 +470,19 @@ class BestOf(commands.Cog):
 
                     try:
                         item = self.plex.fetchItem(item_key)
-                        if item.type == 'movie':
+                        formatted_title = f"- [{title}]({plex_web_url})"
+
+                        # Categorize based on library name
+                        if 'Anime' in library_name:
+                            anime_list.append(formatted_title)
+                        elif 'Variety Shows' in library_name:
+                            variety_list.append(formatted_title)
+                        elif item.type == 'movie':
                             movies_list.append(formatted_title)
                         elif item.type == 'show':
                             shows_list.append(formatted_title)
                     except Exception as e:
-                        continue  # Ignore errors and continue to the next item
+                        continue
 
         # Get the user's highest role color
         role_color = member.top_role.color if member.top_role.name != "@everyone" else discord.Color.default()
@@ -484,11 +493,18 @@ class BestOf(commands.Cog):
             # Shuffle the movies_list and shows_list
         random.shuffle(movies_list)
         random.shuffle(shows_list)
+        random.shuffle(anime_list)
+        random.shuffle(variety_list)
 
+        # Add fields to embed based on the lists
+        if anime_list:
+            embed.add_field(name="Anime", value="\n".join(anime_list), inline=True)
         if shows_list:
-            embed.add_field(name="Shows", value="\n".join(shows_list), inline=True)
+            embed.add_field(name="Dramas", value="\n".join(shows_list), inline=True)
         if movies_list:
             embed.add_field(name="Movies", value="\n".join(movies_list), inline=True)
+        if variety_list:
+            embed.add_field(name="Variety Shows", value="\n".join(variety_list), inline=True)
         
         # Random background image from one of the voted titles
         random_background_url = await self.get_random_background(user_votes)
