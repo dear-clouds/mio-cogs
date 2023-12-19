@@ -351,6 +351,8 @@ class BestOf(commands.Cog):
     async def create_topvotes_embed(self, votes, year, ctx, all_years):
         default_color = await ctx.embed_color()
         embed = discord.Embed(title=f"Top Titles for {year}", color=default_color or discord.Color.default())
+        
+        allowed_libraries = await self.config.allowed_libraries()
 
         min_year = min(all_years, default=datetime.today().year - 1)
         max_year = max(all_years, default=datetime.today().year - 1)
