@@ -142,7 +142,7 @@ class BestOf(commands.Cog):
 
         await ctx.send("Select a Library to Vote In", view=view)
 
-    async def add_vote(self, interaction, ctx, library_name: str, title: str, is_tv_show: bool = False):
+    async def add_vote(self, interaction, library_name: str, title: str, is_tv_show: bool = False):
         # Ensure the Plex server has been initialized
         if not self.plex:
             await interaction.followup.send("The Plex server has not been configured.", ephemeral=True)
@@ -191,12 +191,11 @@ class BestOf(commands.Cog):
         await interaction.followup.send(mention_message)
 
         # Creating the embed
-        default_color = await ctx.embed_color()
         embed = discord.Embed(
             title=item.title,
             url=plex_web_url,
             description=f"{item.summary}\n\n📌 **You will be voting for this title for the year {title_year}.**",
-            color=default_color or discord.Color.default()
+            color=discord.Color.default()
         )
 
         # Add poster URL if available
