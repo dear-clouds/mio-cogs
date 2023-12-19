@@ -1,7 +1,6 @@
 import discord
 import plexapi
 import asyncio
-import aiohttp
 from redbot.core import commands, Config, app_commands
 from discord.ui import View, Select
 from plexapi.server import PlexServer
@@ -24,7 +23,11 @@ class BestOf(commands.Cog):
         await self.bot.wait_until_ready()
         plex_server_url = await self.config.plex_server_url()
         plex_server_auth_token = await self.config.plex_server_auth_token()
-        self.plex = PlexServer(plex_server_url, plex_server_auth_token)
+        
+        try:
+            self.plex = PlexServer(plex_server_url, plex_server_auth_token)
+        except Exception as e:
+            print(f"Failed to connect to Plex server: {e}")
 
     @commands.group(autohelp=True)
     @commands.guild_only()
@@ -100,6 +103,30 @@ class BestOf(commands.Cog):
         await self.config.allowed_libraries.set(allowed_libraries_config)
 
         await ctx.send(f"Allowed libraries updated: {', '.join(allowed_libraries_config)}")
+        
+    @bestof.command(name='reset')
+    @commands.has_guild_permissions(administrator=True)
+    async def reset_config(self, ctx):
+        """Reset the cog configuration for this server."""
+        await self.config.guild(ctx.guild).clear()
+        await ctx.send("Cog configuration has been reset for this server.")
+        
+    @bestof.command(name="config")
+    @commands.is_owner()
+    async def show_config(self, ctx):
+        """Shows the current configuration of the BestOf cog."""
+        plex_server_url = await self.config.plex_server_url()
+        plex_server_auth_token = await self.config.plex_server_auth_token()  # Not displaying the token for security reasons
+        allowed_libraries = await self.config.allowed_libraries()
+        default_color = await ctx.embed_color()
+
+        embed = discord.Embed(title="BestOf Configuration", color=default_color)
+
+        embed.add_field(name="Plex Server URL", value=plex_server_url or "Not Set", inline=False)
+        embed.add_field(name="Plex Server Authentication Token", value="Hidden for security" or "Not Set", inline=False)
+        embed.add_field(name="Allowed Libraries", value=", ".join(allowed_libraries) if allowed_libraries else "None", inline=False)
+
+        await ctx.send(embed=embed)
 
     @commands.command()
     async def vote(self, ctx):
@@ -115,41 +142,40 @@ class BestOf(commands.Cog):
 
         await ctx.send("Select a Library to Vote In", view=view)
 
-    async def add_vote(self, interaction, library_name: str, title: str, is_tv_show: bool = False):
+    async def add_vote(self, interaction, ctx, library_name: str, title: str, is_tv_show: bool = False):
         # Ensure the Plex server has been initialized
         if not self.plex:
             await interaction.followup.send("The Plex server has not been configured.", ephemeral=True)
             return
 
         # Find the library with the given name
-        libraries = self.plex.library.sections()
-        library = None
-        for lib in libraries:
-            if lib.title == library_name:
-                library = lib
-                break
+        try:
+            libraries = self.plex.library.sections()
+        except Exception as e:
+            await interaction.followup.send("Failed to retrieve libraries from Plex server.")
+            return  # Early return on error
+
+        library = next((lib for lib in libraries if lib.title == library_name), None)
         if not library:
-            await interaction.followup.send("Library not found.", ephemeral=True)
+            await interaction.followup.send("Library not found.")
             return
 
-        # Find the item with the given title
-        item = None
-        if is_tv_show:
-            for show in library.search(title):
-                if show.type == 'show':
-                    item = show
-                    break
-        else:
-            for movie in library.search(title):
-                if movie.type == 'movie':
-                    item = movie
-                    break
+        try:
+            if is_tv_show:
+                item = next((show for show in library.search(title) if show.type == 'show'), None)
+            else:
+                item = next((movie for movie in library.search(title) if movie.type == 'movie'), None)
+        except Exception as e:
+            await interaction.followup.send("Failed to search for the title in Plex library.")
+            return  # Early return on error
+
         if not item:
-            await interaction.followup.send("Item not found.", ephemeral=True)
+            await interaction.followup.send("Item not found.")
             return
 
-        # Check the year of the title
+        # Get current year
         current_year = datetime.now().year
+        
         if item.year is None or item.year >= current_year:
             await interaction.followup.send(f"You can only vote for titles from previous years, not from {current_year}.", ephemeral=True)
             return
@@ -158,12 +184,19 @@ class BestOf(commands.Cog):
         plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
         poster_url = self.plex.url(item.thumb, includeToken=True) if item.thumb else None
         title_year = item.year if item.year else "Unknown Year"
+        user_mention = interaction.user.mention  # Get the mention string for the user
 
-        # Confirm with the user that the correct item was found
+        # Send a message mentioning the user
+        mention_message = f"{user_mention}, please confirm the title."
+        await interaction.followup.send(mention_message)
+
+        # Creating the embed
+        default_color = await ctx.embed_color()
         embed = discord.Embed(
             title=item.title,
             url=plex_web_url,
-            description=f"{item.summary}\n\nYou will be voting for this title for the year {title_year}."
+            description=f"{item.summary}\n\n📌 **You will be voting for this title for the year {title_year}.**",
+            color=default_color or discord.Color.default()
         )
 
         # Add poster URL if available
@@ -186,29 +219,43 @@ class BestOf(commands.Cog):
             await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
             return
 
-        # Check if the user has already voted for the given title in the given library
+        # Retrieve user's existing votes
         user_votes = await self.config.user(interaction.user).votes()
-        if library_name not in user_votes:
-            user_votes[library_name] = {}
 
-        if title in user_votes[library_name]:
-            await interaction.followup.send("You have already voted for a title in this library.", ephemeral=True)
-            return
+        # Check if the user has already voted for a title in the given library for the current year
+        if user_votes.get(library_name) == title:
+            # Send a warning message
+            confirm = await interaction.followup.send(
+                f"You already voted for the title '{title}' in this library for the year {current_year}. "
+                "Do you want to replace it? (Yes/No)"
+            )
+            
+            def check_confirm(m):
+                return m.author == interaction.user and m.channel == interaction.channel
 
-        # Add the vote to the user's data
-        user_votes[library_name][title] = item.rating
+            try:
+                confirm_response = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
+                if confirm_response.content.lower() != 'yes':
+                    await interaction.followup.send("Vote not replaced.", ephemeral=True)
+                    return
+            except asyncio.TimeoutError:
+                await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
+                return
+
+        # Add or update the vote
+        user_votes[library_name] = title
         await self.config.user(interaction.user).votes.set(user_votes)
 
         await interaction.followup.send(f"Vote for `{item.title}` recorded.", ephemeral=True)
 
-    async def get_top_movies(self):
-        # Get data for all users who voted during January
+    async def get_top_titles(self):
+        # Get data for all users who voted
         user_data = await self.config.all_users()
         votes = {}
         for uid, data in user_data.items():
             if 'votes' in data:
-                for library_name, movies in data['votes'].items():
-                    for title, rating in movies.items():
+                for library_name, titles in data['votes'].items():
+                    for title, rating in titles.items():
                         if library_name not in votes:
                             votes[library_name] = {}
                         if title not in votes[library_name]:
@@ -216,12 +263,12 @@ class BestOf(commands.Cog):
                         votes[library_name][title] += 1
 
         # Get the most voted title for each library
-        top_movies = {}
-        for library_name, movies in votes.items():
-            top_movie = max(movies, key=movies.get)
-            top_movies[library_name] = top_movie
+        top_titles = {}
+        for library_name, titles in votes.items():
+            top_title = max(titles, key=titles.get)
+            top_titles[library_name] = top_title
 
-        return top_movies
+        return top_titles
 
     async def get_collection(self, library, collection_title):
         """Returns a Plex collection with the given title if it exists, else None."""
@@ -260,7 +307,7 @@ class BestOf(commands.Cog):
                 elif str(reaction.emoji) == '➡️' and data_exists['next']:
                     year += 1
 
-                embed, data_exists = self.create_topvotes_embed(votes, year)
+                embed, data_exists = self.create_topvotes_embed(votes, year, ctx)
                 await message.edit(embed=embed)
 
                 # Update reactions
@@ -279,35 +326,46 @@ class BestOf(commands.Cog):
             except asyncio.TimeoutError:
                 break
         
-    def create_topvotes_embed(self, votes, year):
+    async def create_topvotes_embed(self, year, ctx):
+        default_color = await ctx.embed_color()
         embed = discord.Embed(
             title=f"Top Titles for {year}",
-            color=discord.Color.blurple()
+            color=default_color or discord.Color.default()
         )
 
-        for library_name, yearly_data in votes.items():
-            if year in yearly_data:
-                # Assuming sorted_movies is a list of tuples like (title, rating)
-                sorted_movies = sorted(yearly_data[year], key=lambda x: x[1], reverse=True)
-                if sorted_movies:
-                    top_movie_title, top_movie_rating = sorted_movies[0]
-                    # Assuming you have a method to get the Plex URL for a title
-                    plex_url = self.get_plex_url(library_name, top_movie_title)
-                    embed.add_field(name=library_name, value=f"[{top_movie_title}]({plex_url})", inline=False)
+        # Retrieve the list of allowed libraries
+        allowed_libraries = await self.config.allowed_libraries()
+
+        # Process votes to get top titles
+        user_data = await self.config.all_users()
+        votes = self.process_votes(user_data)
+
+        # Loop through each allowed library
+        for library_name in allowed_libraries:
+            if library_name in votes.get(year, {}):
+                top_title = max(votes[year][library_name], key=votes[year][library_name].get)
+                top_title_votes = votes[year][library_name][top_title]
+
+                # Retrieve the Plex URL for the top title title
+                library = self.plex.library.section(library_name)
+                item = library.get(top_title)
+                plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
+
+                embed.add_field(
+                    name=f"**{library_name}**",
+                    value=f"[{top_title}]({plex_web_url}) - Votes: {top_title_votes}",
+                    inline=False
+                )
 
         return embed
 
     def process_votes(self, user_data):
         votes = {}
-        for uid, data in user_data.items():
-            if 'votes' in data:
-                for library_name, vote_info in data['votes'].items():
-                    for movie_title, rating, year in vote_info:  # Adjust this line as per your data structure
-                        if year not in votes:
-                            votes[year] = {}
-                        if library_name not in votes[year]:
-                            votes[year][library_name] = []
-                        votes[year][library_name].append((movie_title, rating))
+        for uid, user_votes in user_data.items():
+            for vote in user_votes.get('votes', []):
+                year, library_name, title = vote['year'], vote['library'], vote['title']
+                votes.setdefault(year, {}).setdefault(library_name, {}).setdefault(title, 0)
+                votes[year][library_name][title] += 1
         return votes
 
     @commands.command()
@@ -315,10 +373,10 @@ class BestOf(commands.Cog):
     async def createcollection(self, ctx):
         """Create the Plex collection."""
         # Get the most voted titles
-        top_movies = await self.get_top_movies()
+        top_titles = await self.get_top_titles()
 
         # Create a collection for each library and add the most voted title
-        for library_name, top_movie_title in top_movies.items():
+        for library_name, top_title in top_titles.items():
             library = self.plex.library.section(library_name)
             server_name = self.plex.friendlyName
             collection_title = f"Best of {server_name}"
@@ -336,8 +394,8 @@ class BestOf(commands.Cog):
                     **({'poster': self.poster_url} if self.poster_url else {})
                 )
 
-            movie = library.search(top_movie_title)[0]
-            collection.addItems(movie)
+            title = library.search(top_title)[0]
+            collection.addItems(title)
 
         await ctx.send("Collections created.")
         
@@ -363,7 +421,7 @@ class LibrarySelect(Select):
         is_tv_show = library.type == "show"
 
         # Ask the user to type the title they want to vote for
-        await interaction.response.send_message(f"Selected library: {selected_library}. Please type the title you want to vote for.")
+        await interaction.response.send_message(f"Selected library: **{selected_library}**. Please type the title you want to vote for. **It must be the exact title on Plex.**")
 
         # Wait for the user's response
         def message_check(m):

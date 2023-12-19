@@ -395,7 +395,7 @@ class JobView(discord.ui.View):
                     embed.color = discord.Colour.green()
                     embed.set_thumbnail(url=completed_image_url)
                     await thread.send(embed=embed)
-                    await thread.send(f"{creator.mention} has marked the job as complete and credits has been sent to {taker.mention}.")
+                    await thread.send(f"{creator.mention} has marked the job as complete and the salary has been sent to {taker.mention}.")
 
         await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
 
