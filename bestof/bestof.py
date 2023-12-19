@@ -236,20 +236,17 @@ class BestOf(commands.Cog):
             await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
             return
 
-        # Retrieve user's existing votes
-        user_votes = await self.config.user(interaction.user).votes()
+        # Retrieve user's existing votes for the current year
+        current_year = str(datetime.now().year)
+        year_votes = user_votes.get(current_year, {})
+        library_vote = year_votes.get(library_name, {})
 
-        # Create a key that combines the library name and the year
-        library_year_key = f"{library_name}-{item_year}"
-
-        # Check if the user has already voted for a title in the given library for the specified year
-        existing_vote = user_votes.get(library_year_key, None)
-
-        if existing_vote:
-            existing_title = existing_vote.get('title')
+        if library_vote:
+            existing_title = library_vote.get('title')
+            existing_year = library_vote.get('year')
 
             # Check if the user is trying to vote for the same title and year
-            if existing_title == title:
+            if existing_title == title and existing_year == item_year:
                 # Send a confirmation message
                 confirm_message = await interaction.followup.send(
                     f"You have already voted for '{existing_title}' in '{library_name}' for the year {item_year}. "
@@ -270,36 +267,25 @@ class BestOf(commands.Cog):
                     return
 
         # Add or update the vote
-        user_votes[library_year_key] = {'title': title, 'item_key': item_key, 'year': item_year}
+        current_year = str(datetime.now().year)
+        user_votes.setdefault(current_year, {}).setdefault(library_name, {})
+        user_votes[current_year][library_name] = {'title': title, 'item_key': item_key, 'year': item_year}
         await self.config.user(interaction.user).votes.set(user_votes)
 
-        await interaction.followup.send(f"Vote for `{title}` ({item_year}) in '{library_name}' recorded.", ephemeral=True)
+        await interaction.followup.send(f"Vote for `{title}` ({item_year}) recorded.", ephemeral=True)
 
     async def get_top_titles(self):
         # Get data for all users who voted
         user_data = await self.config.all_users()
-        votes = {}
-        for uid, data in user_data.items():
-            if 'votes' in data:
-                for library_year_key, vote_info in data['votes'].items():
-                    library, year = library_year_key.rsplit('-', 1)
-                    title = vote_info['title']
-                    if library not in votes:
-                        votes[library] = {}
-                    if year not in votes[library]:
-                        votes[library][year] = {}
-                    if title not in votes[library][year]:
-                        votes[library][year][title] = 0
-                    votes[library][year][title] += 1
+        votes = self.process_votes(user_data)
 
         # Get the most voted title for each library and year
         top_titles = {}
-        for library, years in votes.items():
-            for year, titles in years.items():
+        for year, libraries in votes.items():
+            top_titles[year] = {}
+            for library_name, titles in libraries.items():
                 top_title = max(titles, key=titles.get)
-                if library not in top_titles:
-                    top_titles[library] = {}
-                top_titles[library][year] = top_title
+                top_titles[year][library_name] = top_title
 
         return top_titles
 
@@ -437,24 +423,16 @@ class BestOf(commands.Cog):
             'next': year < max_year and year < datetime.today().year - 1
         }
 
-        aggregated_votes = {}
-        for user_id, user_data in votes.items():
-            user_votes = user_data.get('votes', {})
-            for library_year_key, vote_info in user_votes.items():
-                library, vote_year = library_year_key.rsplit('-', 1)
-                if library in allowed_libraries and int(vote_year) == year:
-                    title = vote_info['title']
-                    item_key = vote_info['item_key']
-                    aggregated_key = (library, title, item_key)
-                    aggregated_votes[aggregated_key] = aggregated_votes.get(aggregated_key, 0) + 1
-
-        for (library, title, item_key), count in aggregated_votes.items():
-            plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
-            embed.add_field(
-                name=f"**{library}**",
-                value=f"[{title}]({plex_web_url}) - Votes: {count}",
-                inline=True
-            )
+        for library_name in allowed_libraries:
+            library_votes = votes.get(library_name, {})
+            for (title, vote_year, key), count in library_votes.items():
+                if vote_year == year:
+                    plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={key}"
+                    embed.add_field(
+                        name=f"**{library_name}**",
+                        value=f"[{title}]({plex_web_url}) - Votes: {count}",
+                        inline=True
+                    )
 
         if not embed.fields:
             embed.description = "No votes have been registered for this year."
@@ -464,13 +442,13 @@ class BestOf(commands.Cog):
     def process_votes(self, user_data):
         votes = {}
         for user_id, user_votes in user_data.items():
-            for library_name, vote_info in user_votes.get('votes', {}).items():
-                title = vote_info.get('title')
-                year = vote_info.get('year')
-                key = vote_info.get('item_key')
-                if title and year and key:
-                    votes.setdefault(library_name, {}).setdefault((title, year, key), 0)
-                    votes[library_name][(title, year, key)] += 1
+            for year, libraries in user_votes.get('votes', {}).items():
+                for library_name, vote_info in libraries.items():
+                    title = vote_info.get('title')
+                    item_key = vote_info.get('item_key')
+                    if title and item_key:
+                        votes.setdefault(year, {}).setdefault(library_name, {}).setdefault((title, item_key), 0)
+                        votes[year][library_name][(title, item_key)] += 1
         return votes
 
     @bestof.command(name='createcollection')
