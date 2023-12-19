@@ -184,28 +184,39 @@ class BestOf(commands.Cog):
         plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
         poster_url = self.plex.url(item.thumb, includeToken=True) if item.thumb else None
         title_year = item.year if item.year else "Unknown Year"
+        
+        # Get the member's highest role with a non-default color
+        member = interaction.user
+        role_color = discord.Color.default()
+        if isinstance(member, discord.Member):
+            roles = sorted(member.roles, key=lambda r: r.position, reverse=True)
+            for role in roles:
+                if role.color.value != 0:  # Check if the role has a non-default color
+                    role_color = role.color
+                    break
 
         # Creating the embed
         embed = discord.Embed(
             title=item.title,
             url=plex_web_url,
             description=f"{item.summary}\n\n📌 **You will be voting for this title for the year {title_year}.**",
-            color=discord.Color.default()
+            color=role_color
         )
 
         # Add poster URL if available
         if poster_url:
             embed.set_thumbnail(url=poster_url)
-            
+
         # Send a message mentioning the user along with the embed
         user_mention = interaction.user.mention  # Get the mention string for the user
         mention_message = f"{user_mention}, please confirm the title."
-        await interaction.followup.send(content=mention_message, embed=embed)
-
-        msg = await interaction.followup.send(embed=embed)
+        
+        # Send the embed and add reactions to the same message
+        msg = await interaction.followup.send(content=mention_message, embed=embed)
         await msg.add_reaction("✅")
         await msg.add_reaction("❌")
 
+        # Reaction check
         def check(reaction, user):
             return user == interaction.user and reaction.message.id == msg.id and str(reaction.emoji) in ["✅", "❌"]
 
