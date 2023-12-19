@@ -240,14 +240,27 @@ class BestOf(commands.Cog):
         user_votes = await self.config.user(interaction.user).votes()
 
         # Check if the user has already voted for a title in the given library for the current year
+        user_votes = await self.config.user(interaction.user).votes()
+
+        # Check if the user has already voted for a title in the given library for the current year
         existing_vote = user_votes.get(library_name, {})
-        if existing_vote.get('title') == title and existing_vote.get('year') == current_year:
-            # Send a warning message
-            await interaction.followup.send(
-                f"You have already voted for the title '{title}' in this library for the year {current_year}. "
-                "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
+        print(f"DEBUG: Existing vote for {library_name}: {existing_vote}")  # Debug statement
+
+        if existing_vote:
+            existing_title = existing_vote.get('title')
+            existing_year = existing_vote.get('year')
+
+            # Check if the user is trying to vote for the same title and year
+            if existing_title == title and existing_year == item_year:
+                print("DEBUG: User is attempting to replace an existing vote.")  # Debug statement
+
+                # Send a confirmation message
+                confirm_message = await interaction.followup.send(
+                    f"You have already voted for '{existing_title}' in '{library_name}' for the year {existing_year}. "
+                    "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
             )
 
+            # Check for user response
             def check_confirm(m):
                 return m.author == interaction.user and m.channel == interaction.channel
 
