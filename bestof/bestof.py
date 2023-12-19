@@ -19,6 +19,9 @@ class BestOf(commands.Cog):
         self.config.register_user(votes={})
         self.plex = None
 
+    async def cog_load(self):
+        await self.initialize()
+
     async def initialize(self):
         await self.bot.wait_until_ready()
         plex_server_url = await self.config.plex_server_url()
