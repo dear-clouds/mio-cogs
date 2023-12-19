@@ -186,9 +186,6 @@ class BestOf(commands.Cog):
         if item.year is None or item.year >= current_year:
             await interaction.followup.send(f"You can only vote for titles from previous years, not from {current_year}.", ephemeral=True)
             return
-        
-        # Retrieve the current votes for the user
-        user_votes = await self.config.user(interaction.user).votes()
 
         # Confirm with the user that the correct item was found
         plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
@@ -238,21 +235,20 @@ class BestOf(commands.Cog):
         except asyncio.TimeoutError:
             await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
             return
+        
+        # Retrieve the current votes for the user
+        user_votes = await self.config.user(interaction.user).votes()
 
-        # Retrieve user's existing votes for the current year
-        current_year = str(datetime.now().year)
-        year_votes = user_votes.get(current_year, {})
-        library_vote = year_votes.get(library_name, {})
+        # Use the title's release year as the key
+        year_str = str(item_year)
+        library_votes = user_votes.get(year_str, {}).get(library_name, {})
 
-        if library_vote:
-            existing_title = library_vote.get('title')
-            existing_year = library_vote.get('year')
-
-            # Check if the user is trying to vote for the same title and year
-            if existing_title == title and existing_year == item_year:
+        if library_votes:
+            existing_title = library_votes.get('title')
+            if existing_title == title:
                 # Send a confirmation message
                 confirm_message = await interaction.followup.send(
-                    f"You have already voted for '{existing_title}' in '{library_name}' for the year {item_year}. "
+                    f"You have already voted for **{existing_title}** in **{library_name}** for the year **{item_year}**. "
                     "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
                 )
 
@@ -270,9 +266,7 @@ class BestOf(commands.Cog):
                     return
 
         # Add or update the vote
-        current_year = str(datetime.now().year)
-        user_votes.setdefault(current_year, {}).setdefault(library_name, {})
-        user_votes[current_year][library_name] = {'title': title, 'item_key': item_key, 'year': item_year}
+        user_votes.setdefault(year_str, {}).setdefault(library_name, {'title': title, 'item_key': item_key})
         await self.config.user(interaction.user).votes.set(user_votes)
 
         await interaction.followup.send(f"Vote for `{title}` ({item_year}) recorded.", ephemeral=True)
