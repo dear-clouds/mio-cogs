@@ -232,10 +232,10 @@ class BestOf(commands.Cog):
 
         # Retrieve user's existing votes
         user_votes = await self.config.user(interaction.user).votes()
-        existing_vote = user_votes.get(library_name, {})
+        existing_vote = user_votes.get(interaction.guild.id, {}).get(library_name, {})
 
         # Check if the user has already voted for a title in the given library for the current year
-        if existing_vote and existing_vote.get('title') == title and existing_vote.get('year') == datetime.now().year:
+        if existing_vote.get('title') == title and existing_vote.get('year') == item_year:
             await interaction.followup.send(f"You have already voted for '{title}'. Do you want to replace your vote? (Yes/No)")
 
             # Confirmation check
@@ -252,7 +252,7 @@ class BestOf(commands.Cog):
                 return
 
         # Add or update the vote
-        user_votes[library_name] = {'title': title, 'item_key': item_key, 'year': item_year}
+        user_votes.setdefault(interaction.guild.id, {})[library_name] = {'title': title, 'item_key': item_key, 'year': item_year}
         await self.config.user(interaction.user).votes.set(user_votes)
         await interaction.followup.send(f"Vote for `{title}` ({item_year}) recorded.", ephemeral=True)
 
