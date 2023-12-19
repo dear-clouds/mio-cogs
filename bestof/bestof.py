@@ -432,7 +432,7 @@ class BestOf(commands.Cog):
         await ctx.send("Collections created.")
         
     @commands.command()
-    async def fav(self, ctx, *, member: discord.Member = None):
+    async def favs(self, ctx, *, member: discord.Member = None):
         # Explicitly check if member is None and assign ctx.author if it is
         member = ctx.author if member is None else member
 
