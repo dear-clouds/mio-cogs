@@ -381,27 +381,26 @@ class BestOf(commands.Cog):
             'next': year < max_year and year < datetime.today().year - 1
         }
 
-        # Aggregate votes
+        # Aggregate votes for the specified year
         aggregated_votes = {}
-        for library_name in allowed_libraries:
-            library_year_key = f"{library_name}-{year}"
-            for user_id, user_data in votes.items():
-                user_vote = user_data.get('votes', {}).get(library_year_key)
-                if user_vote:
-                    title = user_vote['title']
-                    item_key = user_vote['item_key']
-                    aggregated_votes.setdefault((library_name, title, item_key), 0)
-                    aggregated_votes[(library_name, title, item_key)] += 1
+        for user_id, user_data in votes.items():
+            user_votes = user_data.get('votes', {})
+            for library_year_key, vote_info in user_votes.items():
+                library, vote_year = library_year_key.rsplit('-', 1)
+                if library in allowed_libraries and int(vote_year) == year:
+                    title = vote_info['title']
+                    item_key = vote_info['item_key']
+                    aggregated_key = (library, title, item_key)
+                    aggregated_votes[aggregated_key] = aggregated_votes.get(aggregated_key, 0) + 1
 
-        # Create embed fields
-        for (library_name, title, item_key), count in aggregated_votes.items():
-            if library_name in allowed_libraries:
-                plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
-                embed.add_field(
-                    name=f"**{library_name}**",
-                    value=f"[{title}]({plex_web_url}) - Votes: {count}",
-                    inline=True
-                )
+        # Create embed fields for aggregated votes
+        for (library, title, item_key), count in aggregated_votes.items():
+            plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
+            embed.add_field(
+                name=f"**{library}**",
+                value=f"[{title}]({plex_web_url}) - Votes: {count}",
+                inline=True
+            )
 
         if not embed.fields:
             embed.description = "No votes have been registered for this year."
