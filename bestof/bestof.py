@@ -393,14 +393,14 @@ class BestOf(commands.Cog):
             embed.add_field(
                 name=f"**{library} - {year}**",
                 value=f"[{title}]({plex_web_url}) - Votes: {count}",
-                inline=True
+                inline=False
             )
 
         # Check if there are any votes to display
         if not embed.fields:
             embed.description = "No votes have been registered for this year."
 
-        return embed, {'previous': year > min(all_years), 'next': year < max(all_years)}
+        return embed, {'previous': year > min(all_years, default=year - 1), 'next': year < max(all_years, default=year + 1)}
 
     def process_votes(self, user_data):
         votes = {}
