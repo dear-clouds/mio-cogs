@@ -303,20 +303,29 @@ class BestOf(commands.Cog):
         user_data = await self.config.all_users()
         votes = self.process_votes(user_data)
 
-        # Extract all years that have votes and filter out None values
-        all_years = {vote_info.get('year') for _, user_votes in user_data.items() for vote_info in user_votes.get('votes', {}).values() if vote_info.get('year') is not None}
+        # Extract all years that have votes
+        all_years = set()
+        for _, user_votes in user_data.items():
+            for year_str in user_votes.get('votes', {}):
+                try:
+                    all_years.add(int(year_str))
+                except ValueError:
+                    continue  # Ignore non-integer year strings
 
-        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
-        if not embed.fields:
-            await ctx.send(embed=embed)
+        if not all_years:
+            await ctx.send("No votes have been registered.")
             return
 
+        min_year = min(all_years)
+        max_year = max(all_years)
+
+        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx)
         message = await ctx.send(embed=embed)
 
         # Add navigation reactions if applicable
-        if data_exists['previous']:
+        if year > min_year:
             await message.add_reaction('⬅️')
-        if data_exists['next']:
+        if year < max_year:
             await message.add_reaction('➡️')
 
         # Reaction check
@@ -351,23 +360,12 @@ class BestOf(commands.Cog):
             except asyncio.TimeoutError:
                 break
         
-    async def create_topvotes_embed(self, votes, year, ctx, all_years):
+    async def create_topvotes_embed(self, votes, year, ctx):
         default_color = await ctx.embed_color()
         server_name = ctx.guild.name
-        embed = discord.Embed(title=f"🏆 {server_name}'s Best of {year}", color=default_color or discord.Color.default())
+        embed = discord.Embed(title=f"🏆 {server_name}'s Best of {year}", color=default_color)
 
         allowed_libraries = await self.config.allowed_libraries()
-
-        if all_years:
-            min_year = min(all_years)
-            max_year = max(all_years)
-        else:
-            min_year = max_year = datetime.today().year - 1
-
-        data_exists = {
-            'previous': year > min_year,
-            'next': year < max_year
-        }
 
         year_str = str(year)
         for library_name in allowed_libraries:
@@ -382,6 +380,12 @@ class BestOf(commands.Cog):
 
         if not embed.fields:
             embed.description = "No votes have been registered for this year."
+
+        # Determine if previous or next data exists
+        data_exists = {
+            'previous': year > min(all_years),
+            'next': year < max(all_years)
+        }
 
         return embed, data_exists
     
