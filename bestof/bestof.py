@@ -383,14 +383,15 @@ class BestOf(commands.Cog):
 
         # Aggregate votes for the specified year
         aggregated_votes = {}
-        for user_id, user_data in votes.items():
-            user_votes = user_data.get('votes', {})
-            for library_year_key, vote_info in user_votes.items():
-                library, vote_year = library_year_key.rsplit('-', 1)
-                if library in allowed_libraries and int(vote_year) == year:
+        for library_name in allowed_libraries:
+            library_year_key = f"{library_name}-{year}"
+            for user_id, user_data in votes.items():
+                user_votes = user_data.get('votes', {})
+                vote_info = user_votes.get(library_year_key)
+                if vote_info:
                     title = vote_info['title']
                     item_key = vote_info['item_key']
-                    aggregated_key = (library, title, item_key)
+                    aggregated_key = (library_name, title, item_key)
                     aggregated_votes[aggregated_key] = aggregated_votes.get(aggregated_key, 0) + 1
 
         # Create embed fields for aggregated votes
