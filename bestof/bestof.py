@@ -172,6 +172,9 @@ class BestOf(commands.Cog):
         if not item:
             await interaction.followup.send("Item not found.")
             return
+        
+        item_key = item.key
+        item_year = item.year if item.year else "Unknown Year"
 
         # Get current year
         current_year = datetime.now().year
@@ -254,10 +257,11 @@ class BestOf(commands.Cog):
                 return
 
         # Add or update the vote
-        user_votes[library_name] = {'year': current_year, 'title': title}
+        user_votes = await self.config.user(interaction.user).votes()
+        user_votes[library_name] = {'title': title, 'item_key': item_key, 'year': item_year}
         await self.config.user(interaction.user).votes.set(user_votes)
 
-        await interaction.followup.send(f"Vote for `{title}` recorded.", ephemeral=True)
+        await interaction.followup.send(f"Vote for `{title}` ({item_year}) recorded.", ephemeral=True)
 
     async def get_top_titles(self):
         # Get data for all users who voted
@@ -348,17 +352,23 @@ class BestOf(commands.Cog):
             color=default_color or discord.Color.default()
         )
 
-        # Retrieve the list of allowed libraries
         allowed_libraries = await self.config.allowed_libraries()
 
-        # Process votes to get top titles
-        user_data = await self.config.all_users()
-        votes = self.process_votes(user_data)
+        for library_name in allowed_libraries:
+            if library_name in votes:
+                top_vote = max(votes[library_name], key=votes[library_name].get)
+                top_title, top_year, top_key = top_vote
+                top_votes_count = votes[library_name][top_vote]
 
-        if not votes.get(year, {}):
-            # If no votes for the year, add a message to the embed
-            embed.description = "No votes have been registered for this year yet."
-            return embed, {'previous': False, 'next': False}
+                plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={top_key}"
+
+                embed.add_field(
+                    name=f"**{library_name}**",
+                    value=f"[{top_title}]({plex_web_url}) - Votes: {top_votes_count}",
+                    inline=True
+                )
+
+        return embed, {'previous': year > min(votes.keys()), 'next': year < datetime.today().year}
 
         # Loop through each allowed library
         for library_name in allowed_libraries:
@@ -382,12 +392,13 @@ class BestOf(commands.Cog):
     def process_votes(self, user_data):
         votes = {}
         for uid, user_votes in user_data.items():
-            for vote in user_votes.get('votes', []):
-                # Ensure that 'vote' is a dictionary with the expected keys
-                if isinstance(vote, dict) and all(key in vote for key in ['year', 'library', 'title']):
-                    year, library_name, title = vote['year'], vote['library'], vote['title']
-                    votes.setdefault(year, {}).setdefault(library_name, {}).setdefault(title, 0)
-                    votes[year][library_name][title] += 1
+            for library_name, vote_info in user_votes.items():
+                title = vote_info.get('title')
+                year = vote_info.get('year')
+                key = vote_info.get('item_key')
+                if title and year and key:
+                    votes.setdefault(library_name, {}).setdefault((title, year, key), 0)
+                    votes[library_name][(title, year, key)] += 1
         return votes
 
     @commands.command()
