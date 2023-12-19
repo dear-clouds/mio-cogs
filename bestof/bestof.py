@@ -535,18 +535,29 @@ class BestOf(commands.Cog):
                     item_key = vote_info.get('item_key')
                     try:
                         item = self.plex.fetchItem(item_key)
-                        guid_id, id_type = extract_id(item.guid)
-                        if id_type == 'tvdb':
-                            image_url = fetch_image_from_tmdb_with_tvdb_id(guid_id)
-                        elif id_type == 'tmdb':
-                            image_url = fetch_image_from_tmdb(guid_id)
+                        guid = item.guid
+                        if 'tvdb-' in guid:
+                            tvdb_id = guid.split('tvdb-')[1].split('?')[0]
+                            image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
+                        elif 'movie/' in guid or 'show/' in guid:
+                            tmdb_id = guid.split('/')[1].split('?')[0]
+                            image_url = fetch_image_from_tmdb(tmdb_id)
+                        else:
+                            print(f"Unrecognized GUID format: {guid}")
+                            continue
+
                         if image_url:
                             backgrounds.append(image_url)
-                    except Exception as e:
-                        print(f"Error fetching image: {e}")
-                        continue  # Ignore errors and continue to the next item
+                        else:
+                            print(f"No image found for GUID: {guid}")
 
-        return random.choice(backgrounds) if backgrounds else None
+                    except Exception as e:
+                        print(f"Error fetching image for {item_key}: {e}")
+                        continue
+
+        chosen_image = random.choice(backgrounds) if backgrounds else None
+        print(f"Chosen image URL: {chosen_image}")
+        return chosen_image
 
 def extract_id(guid):
     # Extracts numeric ID from a Plex guid
@@ -563,6 +574,7 @@ def fetch_image_from_tmdb(tmdb_id):
     if response.status_code == 200:
         data = response.json()
         return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}" if 'backdrop_path' in data else None
+    print(f"TMDB Fetch Error: Status Code {response.status_code}, URL: {url}")
     return None
 
 def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
@@ -573,6 +585,7 @@ def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
         data = response.json()
         tmdb_id = data['tv_results'][0]['id'] if data.get('tv_results') else None
         return fetch_image_from_tmdb(tmdb_id) if tmdb_id else None
+    print(f"TMDB TVDB Fetch Error: Status Code {response.status_code}, URL: {find_url}")
     return None
 
 def paginate_titles(lists, titles_per_page=10):
