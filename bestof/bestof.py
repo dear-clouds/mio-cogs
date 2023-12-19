@@ -255,10 +255,11 @@ class BestOf(commands.Cog):
                 print("DEBUG: User is attempting to replace an existing vote.")  # Debug statement
 
                 # Send a confirmation message
-                await interaction.followup.send(
+                confirm_message = await interaction.followup.send(
                     f"You have already voted for '{existing_title}' in '{library_name}' for the year {existing_year}. "
                     "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
                 )
+                await interaction.followup.send(confirm_message, ephemeral=True)
 
             # Check for user response
             def check_confirm(m):
