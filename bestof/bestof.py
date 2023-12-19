@@ -618,16 +618,15 @@ class TopsButton(discord.ui.Button):
         self.cog = cog
 
     async def callback(self, interaction: discord.Interaction):
-        # Simulate sending a message with the command
-        message_content = f"{self.cog.bot.command_prefix}topvotes"
-        fake_message = discord.Object(id=interaction.message.id)
-        fake_message.content = message_content
-        fake_message.author = interaction.user
-        fake_message.channel = interaction.channel
+        # Creating a new context from the interaction
+        new_ctx = await self.cog.bot.get_context(interaction.message)
+        new_ctx.interaction = interaction
 
-        # Process the fake message as a command
-        new_ctx = await self.cog.bot.get_context(fake_message)
-        await self.cog.bot.invoke(new_ctx)
+        await self.cog.topvotes(new_ctx)
+
+        # Acknowledge the interaction if not already done
+        if not interaction.response.is_done():
+            await interaction.response.defer()
         
 class NextButton(discord.ui.Button):
     def __init__(self, *args, **kwargs):
