@@ -550,6 +550,7 @@ class BestOf(commands.Cog):
                     try:
                         item = self.plex.fetchItem(item_key)
                         is_movie = item.type == 'movie'
+                        print(f"Item key: {item_key}, Type: {item.type}, GUIDs: {item.guids}")
                         for guid in item.guids:
                             if 'tmdb://' in guid.id:
                                 tmdb_id = guid.id.split('tmdb://')[1]
@@ -564,10 +565,9 @@ class BestOf(commands.Cog):
                                     backgrounds.append(image_url)
                                     break
                         else:
-                            print(f"No recognized GUIDs found for item: {item_key}")
-
+                            print(f"No recognized GUIDs found for item with key {item_key}")
                     except Exception as e:
-                        print(f"Error fetching image for {item_key}: {e}")
+                        print(f"Error fetching image for item key {item_key}: {e}")
                         continue
 
         chosen_image = random.choice(backgrounds) if backgrounds else None
