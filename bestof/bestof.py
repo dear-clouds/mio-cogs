@@ -354,45 +354,29 @@ class BestOf(commands.Cog):
 
         allowed_libraries = await self.config.allowed_libraries()
 
+        data_exists = {'previous': False, 'next': False}
         for library_name in allowed_libraries:
             if library_name in votes:
-                top_vote = max(votes[library_name], key=votes[library_name].get)
-                top_title, top_year, top_key = top_vote
-                top_votes_count = votes[library_name][top_vote]
+                for (title, vote_year, key), count in votes[library_name].items():
+                    if vote_year == year:
+                        plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={key}"
+                        embed.add_field(
+                            name=f"**{library_name}**",
+                            value=f"[{title} ({vote_year})]({plex_web_url}) - Votes: {count}",
+                            inline=True
+                        )
+                        data_exists['previous'] = data_exists['previous'] or vote_year > min_year
+                        data_exists['next'] = data_exists['next'] or vote_year < datetime.today().year
 
-                plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={top_key}"
+        if not embed.fields:
+            embed.description = "No votes have been registered for this year."
 
-                embed.add_field(
-                    name=f"**{library_name}**",
-                    value=f"[{top_title}]({plex_web_url}) - Votes: {top_votes_count}",
-                    inline=True
-                )
-
-        return embed, {'previous': year > min(votes.keys()), 'next': year < datetime.today().year}
-
-        # Loop through each allowed library
-        for library_name in allowed_libraries:
-            if library_name in votes.get(year, {}):
-                top_title = max(votes[year][library_name], key=votes[year][library_name].get)
-                top_title_votes = votes[year][library_name][top_title]
-
-                # Retrieve the Plex URL for the top title title
-                library = self.plex.library.section(library_name)
-                item = library.get(top_title)
-                plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
-
-                embed.add_field(
-                    name=f"**{library_name}**",
-                    value=f"[{top_title}]({plex_web_url}) - Votes: {top_title_votes}",
-                    inline=True
-                )
-
-        return embed
+        return embed, data_exists
 
     def process_votes(self, user_data):
         votes = {}
-        for uid, user_votes in user_data.items():
-            for library_name, vote_info in user_votes.items():
+        for user_id, user_votes in user_data.items():
+            for library_name, vote_info in user_votes.get('votes', {}).items():
                 title = vote_info.get('title')
                 year = vote_info.get('year')
                 key = vote_info.get('item_key')
