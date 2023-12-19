@@ -233,13 +233,14 @@ class BestOf(commands.Cog):
         user_votes = await self.config.user(interaction.user).votes()
 
         # Check if the user has already voted for a title in the given library for the current year
-        if user_votes.get(library_name) == title:
+        existing_vote = user_votes.get(library_name, {})
+        if existing_vote.get('title') == title and existing_vote.get('year') == current_year:
             # Send a warning message
             confirm = await interaction.followup.send(
-                f"You already voted for the title '{title}' in this library for the year {current_year}. "
+                f"You have already voted for the title '{title}' in this library for the year {current_year}. "
                 "Do you want to replace it? (Yes/No)"
             )
-            
+
             def check_confirm(m):
                 return m.author == interaction.user and m.channel == interaction.channel
 
@@ -253,11 +254,10 @@ class BestOf(commands.Cog):
                 return
 
         # Add or update the vote
-        vote_data = {'year': current_year, 'library': library_name, 'title': title}
-        user_votes.append(vote_data)
+        user_votes[library_name] = {'year': current_year, 'title': title}
         await self.config.user(interaction.user).votes.set(user_votes)
 
-        await interaction.followup.send(f"Vote for `{item.title}` recorded.", ephemeral=True)
+        await interaction.followup.send(f"Vote for `{title}` recorded.", ephemeral=True)
 
     async def get_top_titles(self):
         # Get data for all users who voted
@@ -266,7 +266,7 @@ class BestOf(commands.Cog):
         for uid, data in user_data.items():
             if 'votes' in data:
                 for library_name, titles in data['votes'].items():
-                    for title, rating in titles.items():
+                    for title in titles.items():
                         if library_name not in votes:
                             votes[library_name] = {}
                         if title not in votes[library_name]:
