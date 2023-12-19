@@ -243,9 +243,9 @@ class BestOf(commands.Cog):
         existing_vote = user_votes.get(library_name, {})
         if existing_vote.get('title') == title and existing_vote.get('year') == current_year:
             # Send a warning message
-            confirm = await interaction.followup.send(
+            await interaction.followup.send(
                 f"You have already voted for the title '{title}' in this library for the year {current_year}. "
-                "Do you want to replace it? (Yes/No)"
+                "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
             )
 
             def check_confirm(m):
@@ -261,7 +261,6 @@ class BestOf(commands.Cog):
                 return
 
         # Add or update the vote
-        user_votes = await self.config.user(interaction.user).votes()
         user_votes[library_name] = {'title': title, 'item_key': item_key, 'year': item_year}
         await self.config.user(interaction.user).votes.set(user_votes)
 
