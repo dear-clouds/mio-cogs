@@ -320,7 +320,7 @@ class BestOf(commands.Cog):
         return None
         
     @commands.hybrid_command(name="topvotes", description="Show top voted titles")
-    async def topvotes(self, ctx, specified_year: Optional[int] = None):
+    async def topvotes(self, ctx_or_interaction, specified_year: Optional[int] = None):
         current_year = datetime.today().year
         year = specified_year if specified_year and specified_year < current_year else current_year - 1
 
@@ -334,14 +334,19 @@ class BestOf(commands.Cog):
                 try:
                     all_years.add(int(year_str))
                 except ValueError:
-                    continue  # Ignore non-integer year strings
+                    continue
 
         if not all_years:
-            await ctx.send("No votes have been registered.")
+            await ctx_or_interaction.send("No votes have been registered.")
             return
 
-        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
-        message = await ctx.send(embed=embed)
+        embed, data_exists = await self.create_topvotes_embed(votes, year, ctx_or_interaction, all_years)
+
+        # Check if it's an interaction or a context
+        if isinstance(ctx_or_interaction, commands.Context):
+            message = await ctx_or_interaction.send(embed=embed)
+        else:  # It's an interaction
+            await ctx_or_interaction.response.send_message(embed=embed)
 
         # Add navigation reactions if applicable
         if year > min(all_years):
