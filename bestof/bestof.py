@@ -342,11 +342,16 @@ class BestOf(commands.Cog):
 
         embed, data_exists = await self.create_topvotes_embed(votes, year, ctx_or_interaction, all_years)
 
-        # Check if it's an interaction or a context
+        # Check if it's an interaction or a context and send the message accordingly
         if isinstance(ctx_or_interaction, commands.Context):
             message = await ctx_or_interaction.send(embed=embed)
-        else:  # It's an interaction
+            author = ctx_or_interaction.author
+        elif isinstance(ctx_or_interaction, discord.Interaction):
             await ctx_or_interaction.response.send_message(embed=embed)
+            message = await ctx_or_interaction.original_message()
+            author = ctx_or_interaction.user
+        else:
+            return  # In case it's neither
 
         # Add navigation reactions if applicable
         if year > min(all_years):
@@ -356,7 +361,7 @@ class BestOf(commands.Cog):
 
         # Reaction check
         def check(reaction, user):
-            return user == ctx.author and str(reaction.emoji) in ['⬅️', '➡️'] and reaction.message.id == message.id
+            return user == author and str(reaction.emoji) in ['⬅️', '➡️'] and reaction.message.id == message.id
 
         # Reaction listener
         while True:
@@ -367,7 +372,7 @@ class BestOf(commands.Cog):
                 elif str(reaction.emoji) == '➡️' and data_exists['next']:
                     year += 1
 
-                embed, data_exists = await self.create_topvotes_embed(votes, year, ctx, all_years)
+                embed, data_exists = await self.create_topvotes_embed(votes, year, ctx_or_interaction, all_years)
                 await message.edit(embed=embed)
 
                 # Update reactions
