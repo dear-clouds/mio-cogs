@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 import random
 import requests
-import xml.etree.ElementTree as ET
+from bs4 import BeautifulSoup
 
 class BestOf(commands.Cog):
     def __init__(self, bot):
@@ -77,18 +77,6 @@ class BestOf(commands.Cog):
         """Sets the TMDB Api Key."""
         await self.config.tmdb_key.set(key)
         await ctx.send(f"TMDB Api Key set to `{key}`.")
-        
-    @bestof.command(name="anidb")
-    async def set_anidb(self, ctx, key: str):
-        """Sets the AniDB Api Key."""
-        await self.config.anidb_key.set(key)
-        await ctx.send(f"AniDB Api Key set to `{key}`.")
-        
-    @bestof.command(name="anidbclient")
-    async def set_anidb_client(self, ctx, client: str):
-        """Sets the AniDB Client."""
-        await self.config.anidb_client.set(client)
-        await ctx.send(f"AniDB Client set to `{client}`.")
             
     @bestof.command(name="poster")
     async def set_poster(self, ctx, url: str):
@@ -601,47 +589,45 @@ class BestOf(commands.Cog):
         print(f"Chosen image URL: {chosen_image}")
         return chosen_image
 
-def fetch_image_from_tmdb(tmdb_id, is_movie=True):
-    tmdb_api_key = self.config.tmdb_key()
-    base_url = "https://api.themoviedb.org/3/"
-    # Determine if it's a movie or a TV show
-    url = f"{base_url}{'movie' if is_movie else 'tv'}/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}" if 'backdrop_path' in data else None
-    print(f"TMDB Fetch Error: Status Code {response.status_code}, URL: {url}")
-    return None
+    async def fetch_image_from_tmdb(self, tmdb_id, is_movie=True):
+        tmdb_api_key = await self.config.tmdb_key()
+        base_url = "https://api.themoviedb.org/3/"
+        # Determine if it's a movie or a TV show
+        url = f"{base_url}{'movie' if is_movie else 'tv'}/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}" if 'backdrop_path' in data else None
+        print(f"TMDB Fetch Error: Status Code {response.status_code}, URL: {url}")
+        return None
 
-def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
-    tmdb_api_key = self.config.tmdb_key()
-    find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&external_source=tvdb_id"
-    response = requests.get(find_url)
-    if response.status_code == 200:
-        data = response.json()
-        if 'tv_results' in data and data['tv_results']:
-            tmdb_id = data['tv_results'][0]['id']
-            # Check if it is a TV show or a movie
-            is_movie = 'movie' in data['tv_results'][0]
-            return fetch_image_from_tmdb(tmdb_id, is_movie=is_movie)
-    print(f"TMDB TVDB Fetch Error: Status Code {response.status_code}, URL: {find_url}")
-    return None
+    async def fetch_image_from_tmdb_with_tvdb_id(self, tvdb_id):
+        tmdb_api_key = await self.config.tmdb_key()
+        find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&external_source=tvdb_id"
+        response = requests.get(find_url)
+        if response.status_code == 200:
+            data = response.json()
+            if 'tv_results' in data and data['tv_results']:
+                tmdb_id = data['tv_results'][0]['id']
+                # Check if it is a TV show or a movie
+                is_movie = 'movie' in data['tv_results'][0]
+                return fetch_image_from_tmdb(tmdb_id, is_movie=is_movie)
+        print(f"TMDB TVDB Fetch Error: Status Code {response.status_code}, URL: {find_url}")
+        return None
 
-def fetch_image_from_anidb(anidb_id, anidb_key, anidb_client):
-    # Build the URL for the AniDB API request
-    url = f"https://api.anidb.net:9001/httpapi?request=anime&client={anidb_client}&clientver=1&protover=1&aid={anidb_id}&apikey={anidb_key}"
-
-    response = requests.get(url)
-    if response.status_code == 200:
-        try:
-            # Parse the XML response
-            root = ET.fromstring(response.content)
-            # Extract the image URL
-            image_url = root.find('picture').text
-            return f"https://cdn.anidb.net/images/main/{image_url}" if image_url else None
-        except Exception as e:
-            print(f"Error parsing AniDB response: {e}")
-    return None
+    async def fetch_image_from_anidb(anidb_id):
+        url = f"https://anidb.net/anime/{anidb_id}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            # Parse the HTML content
+            soup = BeautifulSoup(response.content, 'html.parser')
+            # Find the <picture> tag and then the <img> tag within it
+            picture_tag = soup.find('picture')
+            if picture_tag:
+                img_tag = picture_tag.find('img')
+                if img_tag and 'src' in img_tag.attrs:
+                    return img_tag['src']
+        return None
 
 def paginate_titles(lists, titles_per_page=10):
     total_pages = max((len(lst) + titles_per_page - 1) // titles_per_page for lst in lists.values())
