@@ -384,11 +384,12 @@ class BestOf(commands.Cog):
     async def create_topvotes_embed(self, votes, year, ctx_or_interaction, all_years):
         # Check if ctx_or_interaction is a context or an interaction
         if isinstance(ctx_or_interaction, commands.Context):
+            default_color = await ctx.embed_color()
             guild = ctx_or_interaction.guild
         elif isinstance(ctx_or_interaction, discord.Interaction):
+            default_color = guild.me.color if guild else discord.Color.default()
             guild = ctx_or_interaction.guild
 
-        default_color = guild.me.color if guild else discord.Color.default()
         server_name = guild.name
         embed = discord.Embed(title=f"🏆 {server_name}'s Best of {year}", color=default_color)
 
@@ -451,6 +452,7 @@ class BestOf(commands.Cog):
 
         # Create a collection for each library and add the most voted title
         for library_name, top_title in top_titles.items():
+            print(f"Library Name: {library_name}")
             library = self.plex.library.section(library_name)
             server_name = self.plex.friendlyName
             collection_title = f"Best of {server_name}"
@@ -550,7 +552,7 @@ class BestOf(commands.Cog):
             await ctx.send(embed=embed, view=view)
 
     async def get_random_background(self, user_votes):
-        print("Entering get_random_background")
+        # print("Entering get_random_background")
         backgrounds = []
         for year, libraries in user_votes.items():
             for library_name, vote_info in libraries.items():
@@ -565,7 +567,7 @@ class BestOf(commands.Cog):
                         continue
 
         chosen_image = random.choice(backgrounds) if backgrounds else None
-        print(f"Chosen image URL: {chosen_image}")
+        # print(f"Chosen image URL: {chosen_image}")
         return chosen_image
     
     async def fetch_image_from_tautulli(self, item_key):
@@ -585,7 +587,7 @@ class BestOf(commands.Cog):
             response = await self.bot.loop.run_in_executor(None, lambda: requests.get(f"{tautulli_url}/api/v2", params=params))
             if response.status_code == 200:
                 data = response.json()
-                print(f"Tautulli API Response: {data}")
+                # print(f"Tautulli API Response: {data}")
                 if data['response']['result'] == 'success':
                     image_url = data['response']['data'].get('art') or data['response']['data'].get('thumb')
                     if image_url:
