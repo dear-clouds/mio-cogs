@@ -61,7 +61,7 @@ class BestOf(commands.Cog):
     async def set_tautulliurl(self, ctx, url: str):
         """Sets the Tautulli URL."""
         await self.config.tautulli_url.set(url)
-        await ctx.send(f"Tautulli URL set to {url}.")
+        await ctx.send(f"Tautulli URL set to `{url}`.")
 
     @bestof.command(name="tautulliapi")
     async def set_tautulliapi(self, ctx, key: str):
@@ -577,14 +577,19 @@ class BestOf(commands.Cog):
             'rating_key': item_key
         }
 
-        response = await self.bot.loop.run_in_executor(None, lambda: requests.get(f"{tautulli_url}/api/v2", params=params))
-        if response.status_code == 200:
-            data = response.json()
-            if data['response']['result'] == 'success':
-                # Attempt to get the 'art' image, fall back to 'thumb' if 'art' is not available
-                image_url = data['response']['data'].get('art') or data['response']['data'].get('thumb')
-                if image_url:
-                    return f"{tautulli_url}{image_url}"
+        try:
+            response = await self.bot.loop.run_in_executor(None, lambda: requests.get(f"{tautulli_url}/api/v2", params=params))
+            if response.status_code == 200:
+                data = response.json()
+                print(f"Tautulli API Response: {data}")
+                if data['response']['result'] == 'success':
+                    image_url = data['response']['data'].get('art') or data['response']['data'].get('thumb')
+                    if image_url:
+                        return f"{tautulli_url}{image_url}"
+            else:
+                print(f"Error: Tautulli API responded with status code {response.status_code}")
+        except Exception as e:
+            print(f"Exception occurred while fetching image from Tautulli: {e}")
 
         return None
 
