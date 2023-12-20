@@ -589,7 +589,7 @@ class BestOf(commands.Cog):
                 if data['response']['result'] == 'success':
                     image_url = data['response']['data'].get('art') or data['response']['data'].get('thumb')
                     if image_url:
-                        return f"{tautulli_url}{image_url}"
+                        return f"{tautulli_url}/pms_image_proxy?img={image_url}"
             else:
                 print(f"Error: Tautulli API responded with status code {response.status_code}")
         except Exception as e:
