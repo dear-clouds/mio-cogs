@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Optional
 import random
 import requests
+import xml.etree.ElementTree as ET
 
 class BestOf(commands.Cog):
     def __init__(self, bot):
@@ -18,6 +19,7 @@ class BestOf(commands.Cog):
             plex_server_auth_token=None,
             tmdb_key=None,
             anidb_key=None,
+            anidb_client=None,
             allowed_libraries=[]
         )
         self.config.register_user(votes={})
@@ -74,13 +76,19 @@ class BestOf(commands.Cog):
     async def set_tmdb(self, ctx, key: str):
         """Sets the TMDB Api Key."""
         await self.config.tmdb_key.set(key)
-        await ctx.send(f"TMDB Api Key set to {key}.")
+        await ctx.send(f"TMDB Api Key set to `{key}`.")
         
     @bestof.command(name="anidb")
     async def set_anidb(self, ctx, key: str):
         """Sets the AniDB Api Key."""
         await self.config.anidb_key.set(key)
-        await ctx.send(f"AniDB Api Key set to {key}.")
+        await ctx.send(f"AniDB Api Key set to `{key}`.")
+        
+    @bestof.command(name="anidbclient")
+    async def set_anidb_client(self, ctx, client: str):
+        """Sets the AniDB Client."""
+        await self.config.anidb_client.set(client)
+        await ctx.send(f"AniDB Client set to `{client}`.")
             
     @bestof.command(name="poster")
     async def set_poster(self, ctx, url: str):
@@ -574,13 +582,13 @@ class BestOf(commands.Cog):
                             if 'tmdb://' in guid.id:
                                 tmdb_id = guid.id.split('tmdb://')[1]
                                 image_url = fetch_image_from_tmdb(tmdb_id, is_movie=is_movie)
-                                if image_url:
-                                    backgrounds.append(image_url)
-                                    break
                             elif 'tvdb://' in guid.id:
                                 tvdb_id = guid.id.split('tvdb://')[1]
                                 image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
-                                if image_url:
+                            elif 'anidb://' in guid.id:
+                                anidb_id = guid.id.split('anidb://')[1]
+                                image_url = fetch_image_from_anidb(anidb_id)
+                            if image_url:
                                     backgrounds.append(image_url)
                                     break
                         else:
@@ -617,6 +625,22 @@ def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
             is_movie = 'movie' in data['tv_results'][0]
             return fetch_image_from_tmdb(tmdb_id, is_movie=is_movie)
     print(f"TMDB TVDB Fetch Error: Status Code {response.status_code}, URL: {find_url}")
+    return None
+
+def fetch_image_from_anidb(anidb_id, anidb_key, anidb_client):
+    # Build the URL for the AniDB API request
+    url = f"https://api.anidb.net:9001/httpapi?request=anime&client={anidb_client}&clientver=1&protover=1&aid={anidb_id}&apikey={anidb_key}"
+
+    response = requests.get(url)
+    if response.status_code == 200:
+        try:
+            # Parse the XML response
+            root = ET.fromstring(response.content)
+            # Extract the image URL
+            image_url = root.find('picture').text
+            return f"https://cdn.anidb.net/images/main/{image_url}" if image_url else None
+        except Exception as e:
+            print(f"Error parsing AniDB response: {e}")
     return None
 
 def paginate_titles(lists, titles_per_page=10):
