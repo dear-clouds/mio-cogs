@@ -384,11 +384,12 @@ class BestOf(commands.Cog):
     async def create_topvotes_embed(self, votes, year, ctx_or_interaction, all_years):
         # Check if ctx_or_interaction is a context or an interaction
         if isinstance(ctx_or_interaction, commands.Context):
-            default_color = await ctx_or_interaction.embed_color()
+            guild = ctx_or_interaction.guild
         elif isinstance(ctx_or_interaction, discord.Interaction):
-            default_color = discord.Color.default()
-            
-        server_name = ctx.guild.name
+            guild = ctx_or_interaction.guild
+
+        default_color = guild.me.color if guild else discord.Color.default()
+        server_name = guild.name
         embed = discord.Embed(title=f"🏆 {server_name}'s Best of {year}", color=default_color)
 
         allowed_libraries = await self.config.allowed_libraries()
@@ -571,10 +572,13 @@ class BestOf(commands.Cog):
         tautulli_url = await self.config.tautulli_url()
         tautulli_api_key = await self.config.tautulli_api()
 
+        # Extract the numeric ID from the item_key
+        rating_key = item_key.split('/')[-1]
+
         params = {
             'apikey': tautulli_api_key,
             'cmd': 'get_metadata',
-            'rating_key': item_key
+            'rating_key': rating_key
         }
 
         try:
