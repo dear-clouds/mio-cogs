@@ -387,15 +387,18 @@ class BestOf(commands.Cog):
                 break
         
     async def create_topvotes_embed(self, votes, year, ctx_or_interaction, all_years):
-        # Check if ctx_or_interaction is a context or an interaction
+        # Define guild variable at the beginning
         if isinstance(ctx_or_interaction, commands.Context):
-            default_color = await ctx.embed_color()
             guild = ctx_or_interaction.guild
+            default_color = await ctx_or_interaction.embed_color()
         elif isinstance(ctx_or_interaction, discord.Interaction):
-            default_color = guild.me.color if guild else discord.Color.default()
             guild = ctx_or_interaction.guild
+            default_color = guild.me.color if guild else discord.Color.default()
+        else:
+            guild = None
+            default_color = discord.Color.default()
 
-        server_name = guild.name
+        server_name = guild.name if guild else "Unknown Server"
         embed = discord.Embed(title=f"🏆 {server_name}'s Best of {year}", color=default_color)
 
         allowed_libraries = await self.config.allowed_libraries()
