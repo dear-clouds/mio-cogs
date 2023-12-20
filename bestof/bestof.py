@@ -193,19 +193,22 @@ class BestOf(commands.Cog):
         item_title = item.title
         item_year = item.year if item.year else "Unknown Year"
         
-        # Get poster URL by fetching from TMDB or TVDB
+        # Determine poster URL
         poster_url = None
-        for guid in item.guids:
-            if 'tmdb://' in guid.id:
-                tmdb_id = guid.id.split('tmdb://')[1]
-                poster_url = fetch_image_from_tmdb(tmdb_id)
-                if poster_url:
-                    break
-            elif 'tvdb://' in guid.id:
-                tvdb_id = guid.id.split('tvdb://')[1]
-                poster_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
-                if poster_url:
-                    break
+        if 'Anime' in library_name and is_tv_show:
+            poster_url = await self.search_anilist(title)
+        else:
+            for guid in item.guids:
+                if 'tmdb://' in guid.id:
+                    tmdb_id = guid.id.split('tmdb://')[1]
+                    poster_url = fetch_image_from_tmdb(tmdb_id)
+                    if poster_url:
+                        break
+                elif 'tvdb://' in guid.id:
+                    tvdb_id = guid.id.split('tvdb://')[1]
+                    poster_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
+                    if poster_url:
+                        break
 
         # Get current year
         current_year = datetime.now().year
@@ -561,26 +564,26 @@ class BestOf(commands.Cog):
                         item = self.plex.fetchItem(item_key)
                         is_movie = item.type == 'movie'
                         print(f"Item key: {item_key}, Type: {item.type}, GUIDs: {item.guids}")
-                        # Print all GUIDs for debugging
-                        print("Available GUIDs:")
-                        for guid in item.guids:
-                            print(f"  {guid.id}")
-                            
-                        for guid in item.guids:
-                            if 'tmdb://' in guid.id:
-                                tmdb_id = guid.id.split('tmdb://')[1]
-                                image_url = fetch_image_from_tmdb(tmdb_id, is_movie=is_movie)
-                            elif 'tvdb://' in guid.id:
-                                tvdb_id = guid.id.split('tvdb://')[1]
-                                image_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
-                            elif 'anidb://' in guid.id:
-                                anidb_id = guid.id.split('anidb://')[1]
-                                image_url = fetch_image_from_anidb(anidb_id)
-                            if image_url:
-                                    backgrounds.append(image_url)
+
+                        image_url = None
+                        if 'Anime' in library_name and item.type == 'show':
+                            # Use AniList for anime titles
+                            image_url = await self.search_anilist(item.title)
+
+                        if not image_url:
+                            for guid in item.guids:
+                                if 'tmdb://' in guid.id:
+                                    tmdb_id = guid.id.split('tmdb://')[1]
+                                    image_url = await self.fetch_image_from_tmdb(tmdb_id, is_movie=is_movie)
+                                elif 'tvdb://' in guid.id:
+                                    tvdb_id = guid.id.split('tvdb://')[1]
+                                    image_url = await self.fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
+
+                                if image_url:
                                     break
-                        else:
-                            print(f"No recognized GUIDs found for item with key {item_key}")
+                                
+                        if image_url:
+                            backgrounds.append(image_url)
                     except Exception as e:
                         print(f"Error fetching image for item key {item_key}: {e}")
                         continue
@@ -615,18 +618,35 @@ class BestOf(commands.Cog):
         print(f"TMDB TVDB Fetch Error: Status Code {response.status_code}, URL: {find_url}")
         return None
 
-    async def fetch_image_from_anidb(anidb_id):
-        url = f"https://anidb.net/anime/{anidb_id}"
-        response = requests.get(url)
-        if response.status_code == 200:
-            # Parse the HTML content
-            soup = BeautifulSoup(response.content, 'html.parser')
-            # Find the <picture> tag and then the <img> tag within it
-            picture_tag = soup.find('picture')
-            if picture_tag:
-                img_tag = picture_tag.find('img')
-                if img_tag and 'src' in img_tag.attrs:
-                    return img_tag['src']
+    async def search_anilist(title):
+        query = '''
+        query ($title: String) {
+            Media (search: $title, type: ANIME) {
+                title {
+                    english
+                    native
+                }
+                bannerImage
+                coverImage {
+                    extraLarge
+                }
+            }
+        }
+        '''
+
+        variables = {
+            'title': title
+        }
+
+        url = 'https://graphql.anilist.co'
+        
+        response = requests.post(url, json={'query': query, 'variables': variables})
+        data = response.json()
+
+        if data.get("data") and data["data"].get("Media"):
+            media = data["data"]["Media"]
+            return media["bannerImage"] if media["bannerImage"] else media["coverImage"]["extraLarge"]
+
         return None
 
 def paginate_titles(lists, titles_per_page=10):
