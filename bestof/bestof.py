@@ -17,9 +17,8 @@ class BestOf(commands.Cog):
         self.config.register_global(
             plex_server_url=None,
             plex_server_auth_token=None,
-            tmdb_key=None,
-            anidb_key=None,
-            anidb_client=None,
+            tautulli_url=None,
+            tautulli_api=None,
             allowed_libraries=[]
         )
         self.config.register_user(votes={})
@@ -57,6 +56,18 @@ class BestOf(commands.Cog):
         """Sets the Plex server authentication token."""
         await self.config.plex_server_auth_token.set(token)
         await ctx.send(f"Plex token set to `{token}`. You can test the connection with the `test` command.")
+        
+    @bestof.command(name="tautulliurl")
+    async def set_tautulliurl(self, ctx, url: str):
+        """Sets the Tautulli URL."""
+        await self.config.tautulli_url.set(url)
+        await ctx.send(f"Tautulli URL set to {url}.")
+
+    @bestof.command(name="tautulliapi")
+    async def set_tautulliapi(self, ctx, key: str):
+        """Sets the Tautulli Api Key."""
+        await self.config.tautulli_api.set(key)
+        await ctx.send(f"Tautulli Api Key set to `{key}`.")
         
     @bestof.command(name="test")
     async def test(self, ctx):
@@ -192,23 +203,7 @@ class BestOf(commands.Cog):
         item_key = item.key
         item_title = item.title
         item_year = item.year if item.year else "Unknown Year"
-        
-        # Determine poster URL
-        poster_url = None
-        if 'Anime' in library_name and is_tv_show:
-            poster_url = await self.search_anilist(title)
-        else:
-            for guid in item.guids:
-                if 'tmdb://' in guid.id:
-                    tmdb_id = guid.id.split('tmdb://')[1]
-                    poster_url = fetch_image_from_tmdb(tmdb_id)
-                    if poster_url:
-                        break
-                elif 'tvdb://' in guid.id:
-                    tvdb_id = guid.id.split('tvdb://')[1]
-                    poster_url = fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
-                    if poster_url:
-                        break
+        poster_url = await self.fetch_image_from_tautulli(item_key)
 
         # Get current year
         current_year = datetime.now().year
@@ -561,91 +556,35 @@ class BestOf(commands.Cog):
                 if vote_info:
                     item_key = vote_info.get('item_key')
                     try:
-                        item = self.plex.fetchItem(item_key)
-                        is_movie = item.type == 'movie'
-                        print(f"Item key: {item_key}, Type: {item.type}, GUIDs: {item.guids}")
-
-                        image_url = None
-                        if 'Anime' in library_name and item.type == 'show':
-                            # Use AniList for anime titles
-                            image_url = await self.search_anilist(item.title)
-
-                        if not image_url:
-                            for guid in item.guids:
-                                if 'tmdb://' in guid.id:
-                                    tmdb_id = guid.id.split('tmdb://')[1]
-                                    image_url = await self.fetch_image_from_tmdb(tmdb_id, is_movie=is_movie)
-                                elif 'tvdb://' in guid.id:
-                                    tvdb_id = guid.id.split('tvdb://')[1]
-                                    image_url = await self.fetch_image_from_tmdb_with_tvdb_id(tvdb_id)
-
-                                if image_url:
-                                    break
-                                
+                        image_url = await self.fetch_image_from_tautulli(item_key)
                         if image_url:
                             backgrounds.append(image_url)
                     except Exception as e:
-                        print(f"Error fetching image for item key {item_key}: {e}")
+                        print(f"Error fetching image for item key {item_key} from Tautulli: {e}")
                         continue
 
         chosen_image = random.choice(backgrounds) if backgrounds else None
         print(f"Chosen image URL: {chosen_image}")
         return chosen_image
+    
+    async def fetch_image_from_tautulli(self, item_key):
+        tautulli_url = await self.config.tautulli_url()
+        tautulli_api_key = await self.config.tautulli_api()
 
-    async def fetch_image_from_tmdb(self, tmdb_id, is_movie=True):
-        tmdb_api_key = await self.config.tmdb_key()
-        base_url = "https://api.themoviedb.org/3/"
-        # Determine if it's a movie or a TV show
-        url = f"{base_url}{'movie' if is_movie else 'tv'}/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            return f"https://image.tmdb.org/t/p/original{data['backdrop_path']}" if 'backdrop_path' in data else None
-        print(f"TMDB Fetch Error: Status Code {response.status_code}, URL: {url}")
-        return None
-
-    async def fetch_image_from_tmdb_with_tvdb_id(self, tvdb_id):
-        tmdb_api_key = await self.config.tmdb_key()
-        find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&external_source=tvdb_id"
-        response = requests.get(find_url)
-        if response.status_code == 200:
-            data = response.json()
-            if 'tv_results' in data and data['tv_results']:
-                tmdb_id = data['tv_results'][0]['id']
-                # Check if it is a TV show or a movie
-                is_movie = 'movie' in data['tv_results'][0]
-                return fetch_image_from_tmdb(tmdb_id, is_movie=is_movie)
-        print(f"TMDB TVDB Fetch Error: Status Code {response.status_code}, URL: {find_url}")
-        return None
-
-    async def search_anilist(title):
-        query = '''
-        query ($title: String) {
-            Media (search: $title, type: ANIME) {
-                title {
-                    english
-                    native
-                }
-                bannerImage
-                coverImage {
-                    extraLarge
-                }
-            }
-        }
-        '''
-
-        variables = {
-            'title': title
+        params = {
+            'apikey': tautulli_api_key,
+            'cmd': 'get_metadata',
+            'rating_key': item_key
         }
 
-        url = 'https://graphql.anilist.co'
-        
-        response = requests.post(url, json={'query': query, 'variables': variables})
-        data = response.json()
-
-        if data.get("data") and data["data"].get("Media"):
-            media = data["data"]["Media"]
-            return media["bannerImage"] if media["bannerImage"] else media["coverImage"]["extraLarge"]
+        response = await self.bot.loop.run_in_executor(None, lambda: requests.get(f"{tautulli_url}/api/v2", params=params))
+        if response.status_code == 200:
+            data = response.json()
+            if data['response']['result'] == 'success':
+                # Attempt to get the 'art' image, fall back to 'thumb' if 'art' is not available
+                image_url = data['response']['data'].get('art') or data['response']['data'].get('thumb')
+                if image_url:
+                    return f"{tautulli_url}{image_url}"
 
         return None
 
