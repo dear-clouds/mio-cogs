@@ -16,6 +16,8 @@ class BestOf(commands.Cog):
         self.config.register_global(
             plex_server_url=None,
             plex_server_auth_token=None,
+            tmdb_key=None,
+            anidb_key=None,
             allowed_libraries=[]
         )
         self.config.register_user(votes={})
@@ -67,6 +69,18 @@ class BestOf(commands.Cog):
             await ctx.send("Connection to Plex server was successful.")
         except Exception as e:
             await ctx.send(f"Failed to connect to Plex server: ```{e}```")
+            
+    @bestof.command(name="tmdb")
+    async def set_tmdb(self, ctx, key: str):
+        """Sets the TMDB Api Key."""
+        await self.config.tmdb_key.set(key)
+        await ctx.send(f"TMDB Api Key set to {key}.")
+        
+    @bestof.command(name="anidb")
+    async def set_anidb(self, ctx, key: str):
+        """Sets the AniDB Api Key."""
+        await self.config.anidb_key.set(key)
+        await ctx.send(f"AniDB Api Key set to {key}.")
             
     @bestof.command(name="poster")
     async def set_poster(self, ctx, url: str):
@@ -228,7 +242,7 @@ class BestOf(commands.Cog):
 
         # Add poster URL if available
         if poster_url:
-            embed.set_thumbnail(url=poster_url)
+            embed.set_image(url=poster_url)
 
         # Send a message mentioning the user along with the embed
         user_mention = interaction.user.mention  # Get the mention string for the user
@@ -551,6 +565,11 @@ class BestOf(commands.Cog):
                         item = self.plex.fetchItem(item_key)
                         is_movie = item.type == 'movie'
                         print(f"Item key: {item_key}, Type: {item.type}, GUIDs: {item.guids}")
+                        # Print all GUIDs for debugging
+                        print("Available GUIDs:")
+                        for guid in item.guids:
+                            print(f"  {guid.id}")
+                            
                         for guid in item.guids:
                             if 'tmdb://' in guid.id:
                                 tmdb_id = guid.id.split('tmdb://')[1]
@@ -575,7 +594,7 @@ class BestOf(commands.Cog):
         return chosen_image
 
 def fetch_image_from_tmdb(tmdb_id, is_movie=True):
-    tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
+    tmdb_api_key = self.config.tmdb_key()
     base_url = "https://api.themoviedb.org/3/"
     # Determine if it's a movie or a TV show
     url = f"{base_url}{'movie' if is_movie else 'tv'}/{tmdb_id}?api_key={tmdb_api_key}&language=en-US"
@@ -587,7 +606,7 @@ def fetch_image_from_tmdb(tmdb_id, is_movie=True):
     return None
 
 def fetch_image_from_tmdb_with_tvdb_id(tvdb_id):
-    tmdb_api_key = "d12b33d3f4fb8736dc06f22560c4f8d4"
+    tmdb_api_key = self.config.tmdb_key()
     find_url = f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={tmdb_api_key}&external_source=tvdb_id"
     response = requests.get(find_url)
     if response.status_code == 200:
