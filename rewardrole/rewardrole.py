@@ -53,17 +53,17 @@ class RewardRole(commands.Cog):
                                             # await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
                                             user_message_count += await self.process_channel_or_thread(thread, member, timeframe, count_only_link_messages, guild)
 
-                                await self.log(guild, f'Finished processing member {member.mention}. Message count: {user_message_count}')  # Debug Log
+                                await self.log(guild, f'Finished processing member {member.mention}. Message count: **{user_message_count}**')  # Debug Log
                                 if user_message_count >= min_messages:
                                     if reward_role not in member.roles:
-                                        await self.log(guild, f'Adding reward role to {member.name}')  # Debug Log
+                                        await self.log(guild, f'Adding reward role to {member.mention}')  # Debug Log
                                         await member.add_roles(reward_role)
                                 else:
                                     if reward_role in member.roles:
-                                        await self.log(guild, f'Removing reward role from {member.name}')  # Debug Log
+                                        await self.log(guild, f'Removing reward role from {member.mention}')  # Debug Log
                                         await member.remove_roles(reward_role)
                         except Exception as e:
-                            await self.log(guild, f'An error occurred while processing member {member.name}: {str(e)}')  # Error Log
+                            await self.log(guild, f'An error occurred while processing member {member.mention}: {str(e)}')  # Error Log
                             continue  # Continue with the next member even if an error occurred
             await asyncio.sleep(4 * 60 * 60)  # Run the task every 4 hours
 
