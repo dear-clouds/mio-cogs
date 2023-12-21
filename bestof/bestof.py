@@ -457,52 +457,49 @@ class BestOf(commands.Cog):
 
     @bestof.command(name='createcollection')
     @commands.has_guild_permissions(administrator=True)
-    async def createcollection(self, ctx, *library_ids):
-        """Create the Plex collection for specified library IDs."""
-        if not library_ids:
-            await ctx.send("No library IDs provided. Please provide library IDs separated by spaces.")
+    async def createcollection(self, ctx):
+        """Create a Plex collection for the most voted title of each year for each library."""
+        allowed_libraries = await self.config.allowed_libraries()
+        if not allowed_libraries:
+            await ctx.send("No allowed libraries set. Please set the allowed libraries first.")
             return
 
-        # Loop through each library ID
-        for library_id in library_ids:
+        for library_name in allowed_libraries:
             try:
-                library_id_int = int(library_id)  # Convert to integer
-                library = self.plex.library.sectionByID(library_id_int)
+                library = self.plex.library.section(library_name)
                 server_name = self.plex.friendlyName
-                collection_title = f"Best of {server_name}"
+                top_titles = await self.get_top_titles_for_library(library_name)
 
-                # Check if the collection already exists
-                collection = await self.get_collection(library, collection_title)
-                if not collection:
-                    # Create a new collection
-                    collection = library.createCollection(
-                        collection_title,
-                        smart=False,
-                        summary=self.description,
-                        **({'poster': self.poster_url} if self.poster_url else {})
-                    )
-                else:
-                    # Update the existing collection
-                    collection.edit(
-                        summary=self.description,
-                        **({'poster': self.poster_url} if self.poster_url else {})
-                    )
+                for year, top_title in top_titles.items():
+                    collection_title = f"Best of {server_name}"
+                    collection = await self.get_collection(library, collection_title)
+                    if not collection:
+                        collection = library.createCollection(
+                            collection_title,
+                            smart=False,
+                            summary=self.description,
+                            **({'poster': self.poster_url} if self.poster_url else {})
+                        )
+                    else:
+                        collection.edit(
+                            summary=self.description,
+                            **({'poster': self.poster_url} if self.poster_url else {})
+                        )
 
-                # Add top voted titles to the collection
-                for top_title in await self.get_top_titles_for_library(library.title):
-                    title = library.search(top_title)[0]
-                    collection.addItems(title)
+                    if top_title:
+                        title = library.search(top_title)[0]
+                        collection.addItems(title)
 
-                await ctx.send(f"Collection created/updated for library ID {library_id_int}.")
+                await ctx.send(f"Collections created/updated for library '{library_name}'.")
             except Exception as e:
-                await ctx.send(f"Failed to process library ID {library_id}: {e}")
+                await ctx.send(f"Failed to process library '{library_name}': {e}")
 
         await ctx.send("All specified collections have been processed.")
 
     async def get_top_titles_for_library(self, library_name):
         """Get the most voted titles for a specific library."""
         top_titles = await self.get_top_titles()
-        return top_titles.get(library_name, [])
+        return top_titles.get(library_name, {})
         
     @commands.command()
     async def favs(self, ctx, *, member: discord.Member = None):
