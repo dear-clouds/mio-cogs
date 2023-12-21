@@ -142,17 +142,18 @@ class RewardRole(commands.Cog):
             count_only_link_messages = role_data.get("count_only_link_messages", False)
 
             # Create an embed for each role
-            embed = discord.Embed(title=f"{role.name}", color=ctx.guild.me.color)
+            default_color = await ctx.embed_color()
+            embed = discord.Embed(title=f"{role.name}", color=default_color)
             embed.add_field(
                 name="Details",
                 value=(
-                    f"Min messages: {role_data['min_messages']}\n"
-                    f"Timeframe: {role_data['timeframe_days']} days\n"
-                    f"Reward role: {reward_role.mention}\n"
-                    f"Count messages that only contain links: {'Yes' if count_only_link_messages else 'No'}\n"
-                    f"Excluded roles: {', '.join([r.mention for r in excluded_roles if r])}\n"
-                    f"Ignored channels: {', '.join([ch.mention for ch in ignored_channels if ch])}\n"
-                    f"Ignored categories: {', '.join([cat.name for cat in ignored_categories if cat])}"
+                    f"**Min messages:** {role_data['min_messages']}\n"
+                    f"**Timeframe:** {role_data['timeframe_days']} days\n"
+                    f"**Reward role:** {reward_role.mention}\n"
+                    f"**Count messages that only contain links:** {'Yes' if count_only_link_messages else 'No'}\n"
+                    f"**Excluded roles:** {', '.join([r.mention for r in excluded_roles if r])}\n"
+                    f"**Ignored channels:** {', '.join([ch.mention for ch in ignored_channels if ch])}\n"
+                    f"**Ignored categories:** {', '.join([cat.name for cat in ignored_categories if cat])}"
                 ),
                 inline=False
             )
