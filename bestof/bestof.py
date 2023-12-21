@@ -493,6 +493,7 @@ class BestOf(commands.Cog):
                 await ctx.send(f"Collections created/updated for library '{library_name}'.")
             except Exception as e:
                 await ctx.send(f"Failed to process library '{library_name}': {e}")
+                print(f"Error creating collection for library '{library_name}': {e}")
 
         await ctx.send("All specified collections have been processed.")
 
