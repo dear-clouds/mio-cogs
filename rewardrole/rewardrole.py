@@ -53,7 +53,7 @@ class RewardRole(commands.Cog):
                                             # await self.log(guild, f'Checking messages in thread {thread.name}')  # Debug Log
                                             user_message_count += await self.process_channel_or_thread(thread, member, timeframe, count_only_link_messages, guild)
 
-                                await self.log(guild, f'Finished processing member {member.name}. Message count: {user_message_count}')  # Debug Log
+                                await self.log(guild, f'Finished processing member {member.mention}. Message count: {user_message_count}')  # Debug Log
                                 if user_message_count >= min_messages:
                                     if reward_role not in member.roles:
                                         await self.log(guild, f'Adding reward role to {member.name}')  # Debug Log
