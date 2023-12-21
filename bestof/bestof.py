@@ -8,7 +8,6 @@ from datetime import datetime
 from typing import Optional
 import random
 import requests
-from bs4 import BeautifulSoup
 
 class BestOf(commands.Cog):
     def __init__(self, bot):

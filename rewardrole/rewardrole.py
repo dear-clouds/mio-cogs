@@ -132,7 +132,7 @@ class RewardRole(commands.Cog):
             await ctx.send("No role conditions have been configured.")
             return
 
-        embed = discord.Embed()
+        pages = []
         for role_id, role_data in roles_data.items():
             role = ctx.guild.get_role(int(role_id))
             reward_role = ctx.guild.get_role(role_data["reward_role"])
@@ -140,12 +140,66 @@ class RewardRole(commands.Cog):
             ignored_channels = [ctx.guild.get_channel(channel_id) for channel_id in role_data["ignored_channels"]]
             ignored_categories = [ctx.guild.get_channel(category_id) for category_id in role_data["ignored_categories"]]
             count_only_link_messages = role_data.get("count_only_link_messages", False)
-            embed.add_field(name=f"{role.name}", value=f"Min messages: {role_data['min_messages']}\nTimeframe: {role_data['timeframe_days']} days\nReward role: {reward_role.name}\nCount messages that only contain links: {'No' if count_only_link_messages else 'Yes'}\nExcluded roles: {', '.join([excluded_role.name for excluded_role in excluded_roles if excluded_role])}\nIgnored channels: {', '.join([ignored_channel.name for ignored_channel in ignored_channels if ignored_channel])}\nIgnored categories: {', '.join([ignored_category.name for ignored_category in ignored_categories if ignored_category])}", inline=False)
 
-        await ctx.send(embed=embed)
+            # Create an embed for each role
+            embed = discord.Embed(title=f"{role.name}", color=ctx.guild.me.color)
+            embed.add_field(
+                name="Details",
+                value=(
+                    f"Min messages: {role_data['min_messages']}\n"
+                    f"Timeframe: {role_data['timeframe_days']} days\n"
+                    f"Reward role: {reward_role.mention}\n"
+                    f"Count messages that only contain links: {'Yes' if count_only_link_messages else 'No'}\n"
+                    f"Excluded roles: {', '.join([r.mention for r in excluded_roles if r])}\n"
+                    f"Ignored channels: {', '.join([ch.mention for ch in ignored_channels if ch])}\n"
+                    f"Ignored categories: {', '.join([cat.name for cat in ignored_categories if cat])}"
+                ),
+                inline=False
+            )
+            pages.append(embed)
+
+        await self.paginate_roles(ctx, pages)
 
     @rewardrole.command(name="setlog")
-    async def set_log_channel(self, ctx, channel: discord.TextChannel):
-        """Only if you want to log messages count by user."""
-        await self.config.guild(ctx.guild).log_channel.set(channel.id)
-        await ctx.send(f"Log channel set to {channel.mention}.")
+    async def set_log_channel(self, ctx, channel: discord.TextChannel, enable: bool):
+        """
+        Set the log channel for the guild. Use 'true' to enable logging to the specified channel, 'false' to disable.
+        """
+        if enable:
+            await self.config.guild(ctx.guild).log_channel.set(channel.id)
+            await ctx.send(f"Log channel set to {channel.mention} and logging enabled.")
+        else:
+            await self.config.guild(ctx.guild).log_channel.set(None)
+            await ctx.send("Logging has been disabled.")
+
+    async def paginate_roles(self, ctx, pages):
+        current_page = 0
+        message = await ctx.send(embed=pages[current_page])
+
+        # Adding reactions for navigation
+        await message.add_reaction("⬅️")
+        await message.add_reaction("➡️")
+
+        def check(reaction, user):
+            return user == ctx.author and reaction.message.id == message.id and str(reaction.emoji) in ["⬅️", "➡️"]
+
+        while True:
+            try:
+                reaction, user = await self.bot.wait_for('reaction_add', timeout=60.0, check=check)
+
+                if str(reaction.emoji) == "➡️" and current_page < len(pages) - 1:
+                    current_page += 1
+                    await message.edit(embed=pages[current_page])
+                    await message.remove_reaction(reaction, user)
+
+                elif str(reaction.emoji) == "⬅️" and current_page > 0:
+                    current_page -= 1
+                    await message.edit(embed=pages[current_page])
+                    await message.remove_reaction(reaction, user)
+
+                else:
+                    await message.remove_reaction(reaction, user)
+
+            except asyncio.TimeoutError:
+                await message.clear_reactions()
+                break
