@@ -582,7 +582,10 @@ class BestOf(commands.Cog):
         # Random background image from one of the voted titles
         random_background_url = await self.get_random_background(user_votes)
         if random_background_url:
+            print(f"Setting background image URL: {random_background_url}")  # Debugging line
             embed.set_image(url=random_background_url)
+        else:
+            print("No background image URL found")  # Debugging line
         
         # Define the buttons and pass the cog instance
         vote_button = VoteButton(self)
