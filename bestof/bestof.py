@@ -559,39 +559,40 @@ class BestOf(commands.Cog):
         for category in categories.values():
             random.shuffle(category)
 
-        # Paginate if more than 40 titles
-        total_titles = sum(len(lst) for lst in categories.values())
-        if total_titles > 40:
-            pages = paginate_titles(categories, titles_per_page=10)
-            view = PaginatedView(pages, member=member, role_color=role_color, cog=self)
-            embed = view.create_embed_for_page(0, member, role_color, self.get_random_background(user_votes))
-            await ctx.send(embed=embed, view=view)
-        else:
-            # Create a single embed for all titles when total is 40 or fewer
-            embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites", color=member.top_role.color)
-            embed.set_thumbnail(url=member.avatar.url)
+        # Ensure no field value exceeds 1024 characters
+        def chunk_string(string, length):
+            return (string[0+i:length+i] for i in range(0, len(string), length))
 
-            # Add fields to embed based on the lists
-            for category_name, title_list in categories.items():
-                if title_list:
-                    embed.add_field(name=category_name, value="\n".join(title_list), inline=True)
-            
-            # Random background image from one of the voted titles
-            random_background_url = await self.get_random_background(user_votes)
-            if random_background_url:
-                embed.set_image(url=random_background_url)
-            
-            # Define the buttons and pass the cog instance
-            vote_button = VoteButton(self)
-            tops_button = TopsButton(self)
+        # Create a single embed for all titles
+        embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites", color=member.top_role.color)
+        embed.set_thumbnail(url=member.avatar.url)
 
-            # Create a View and add the buttons
-            view = discord.ui.View()
-            view.add_item(vote_button)
-            view.add_item(tops_button)
+        for category_name, title_list in categories.items():
+            if title_list:
+                field_value = "\n".join(title_list)
+                if len(field_value) > 1024:
+                    chunks = list(chunk_string(field_value, 1024))
+                    for i, chunk in enumerate(chunks):
+                        embed.add_field(name=f"{category_name} (Part {i+1})", value=chunk, inline=False)
+                else:
+                    embed.add_field(name=category_name, value=field_value, inline=False)
+        
+        # Random background image from one of the voted titles
+        random_background_url = await self.get_random_background(user_votes)
+        if random_background_url:
+            embed.set_image(url=random_background_url)
+        
+        # Define the buttons and pass the cog instance
+        vote_button = VoteButton(self)
+        tops_button = TopsButton(self)
 
-            # Send the embed with the View
-            await ctx.send(embed=embed, view=view)
+        # Create a View and add the buttons
+        view = discord.ui.View()
+        view.add_item(vote_button)
+        view.add_item(tops_button)
+
+        # Send the embed with the View
+        await ctx.send(embed=embed, view=view)
 
     async def get_random_background(self, user_votes):
         # print("Entering get_random_background")
