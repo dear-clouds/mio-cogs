@@ -1,6 +1,7 @@
 import discord
 import plexapi
 import asyncio
+import aiohttp
 from redbot.core import commands, Config, app_commands
 from discord.ui import View, Select
 from plexapi.server import PlexServer
@@ -533,28 +534,32 @@ class BestOf(commands.Cog):
             "Movies": []
         }
 
-        # Populate the lists
+        async def fetch_item_data(item_key, title, library_name):
+            plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
+            try:
+                item = await self.bot.loop.run_in_executor(None, lambda: self.plex.fetchItem(item_key))
+                formatted_title = f"- [{title}]({plex_web_url})"
+                if 'Anime' in library_name:
+                    categories["Anime"].append(formatted_title)
+                elif 'Variety Show' in library_name:
+                    categories["Variety Shows"].append(formatted_title)
+                elif item.type == 'movie':
+                    categories["Movies"].append(formatted_title)
+                elif item.type == 'show':
+                    categories["Dramas"].append(formatted_title)
+            except Exception as e:
+                print(f"Error fetching item data for key {item_key}: {e}")
+
+        # Populate the lists concurrently
+        tasks = []
         for year, libraries in user_votes.items():
             for library_name, vote_info in libraries.items():
                 if vote_info:
                     title = vote_info.get('title')
                     item_key = vote_info.get('item_key')
-                    plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item_key}"
-                    
-                    try:
-                        item = self.plex.fetchItem(item_key)
-                        formatted_title = f"- [{title}]({plex_web_url})"
-                        # Categorize the titles based on the library name and item type
-                        if 'Anime' in library_name:
-                            categories["Anime"].append(formatted_title)
-                        elif 'Variety Show' in library_name:
-                            categories["Variety Shows"].append(formatted_title)
-                        elif item.type == 'movie':
-                            categories["Movies"].append(formatted_title)
-                        elif item.type == 'show':
-                            categories["Dramas"].append(formatted_title)
-                    except Exception as e:
-                        continue  # Ignore errors and continue to the next item
+                    tasks.append(fetch_item_data(item_key, title, library_name))
+
+        await asyncio.gather(*tasks)
 
         # Limit each category to 6 entries chosen randomly
         for category in categories.values():
@@ -592,25 +597,22 @@ class BestOf(commands.Cog):
         await ctx.send(embed=embed, view=view)
 
     async def get_random_background(self, user_votes):
-        # print("Entering get_random_background")
         backgrounds = []
-        for year, libraries in user_votes.items():
-            for library_name, vote_info in libraries.items():
-                if vote_info:
-                    item_key = vote_info.get('item_key')
-                    try:
-                        image_url = await self.fetch_image_from_tautulli(item_key)
-                        if image_url:
-                            backgrounds.append(image_url)
-                    except Exception as e:
-                        print(f"Error fetching image for item key {item_key} from Tautulli: {e}")
-                        continue
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            for year, libraries in user_votes.items():
+                for library_name, vote_info in libraries.items():
+                    if vote_info:
+                        item_key = vote_info.get('item_key')
+                        tasks.append(self.fetch_image_from_tautulli(session, item_key))
+            
+            results = await asyncio.gather(*tasks)
+            backgrounds = [result for result in results if result]
 
         chosen_image = random.choice(backgrounds) if backgrounds else None
-        # print(f"Chosen image URL: {chosen_image}")
         return chosen_image
-    
-    async def fetch_image_from_tautulli(self, item_key):
+
+    async def fetch_image_from_tautulli(self, session, item_key):
         tautulli_url = await self.config.tautulli_url()
         tautulli_api_key = await self.config.tautulli_api()
 
@@ -624,16 +626,15 @@ class BestOf(commands.Cog):
         }
 
         try:
-            response = await self.bot.loop.run_in_executor(None, lambda: requests.get(f"{tautulli_url}/api/v2", params=params))
-            if response.status_code == 200:
-                data = response.json()
-                # print(f"Tautulli API Response: {data}")
-                if data['response']['result'] == 'success':
-                    image_url = data['response']['data'].get('art') or data['response']['data'].get('thumb')
-                    if image_url:
-                        return f"{tautulli_url}/pms_image_proxy?img={image_url}.jpg"
-            else:
-                print(f"Error: Tautulli API responded with status code {response.status_code}")
+            async with session.get(f"{tautulli_url}/api/v2", params=params) as response:
+                if response.status_code == 200:
+                    data = await response.json()
+                    if data['response']['result'] == 'success':
+                        image_url = data['response']['data'].get('art') or data['response']['data'].get('thumb')
+                        if image_url:
+                            return f"{tautulli_url}/pms_image_proxy?img={image_url}.jpg"
+                else:
+                    print(f"Error: Tautulli API responded with status code {response.status_code}")
         except Exception as e:
             print(f"Exception occurred while fetching image from Tautulli: {e}")
 
