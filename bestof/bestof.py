@@ -478,34 +478,43 @@ class BestOf(commands.Cog):
                 library = self.plex.library.section(library_name)
                 server_name = self.plex.friendlyName
                 top_titles = await self.get_top_titles_for_library(library_name)
+                await ctx.send(f"Processing library: {library_name}")
 
                 for year, top_title in top_titles.items():
-                    collection_title = f"{server_name}'s Awards'"
+                    collection_title = f"{server_name}'s Awards {year}"
+                    await ctx.send(f"Creating/updating collection: {collection_title}")
+
                     collection = await self.get_collection(library, collection_title)
                     if not collection:
                         # Creating a new collection
+                        await ctx.send(f"Creating new collection: {collection_title}")
                         collection = library.createCollection(
                             title=collection_title,
                             smart=False,
                             summary=description,
                             **({'poster': poster_url} if poster_url else {})
                         )
+                        await ctx.send(f"Created new collection: {collection_title}")
                     else:
                         # Editing an existing collection
+                        await ctx.send(f"Editing existing collection: {collection_title}")
                         collection.edit(
                             summary=description,
                             **({'poster': poster_url} if poster_url else {})
                         )
+                        await ctx.send(f"Updated existing collection: {collection_title}")
 
                     if top_title:
                         # Search for the title in the library and add it to the collection
+                        await ctx.send(f"Searching for title: {top_title}")
                         search_results = library.search(top_title)
                         if search_results:
+                            await ctx.send(f"Adding title to collection: {top_title}")
                             collection.addItems(search_results[0])
+                            await ctx.send(f"Added '{top_title}' to collection '{collection_title}'")
                         else:
                             await ctx.send(f"Title '{top_title}' not found in library '{library_name}' for year '{year}'.")
 
-                await ctx.send(f"Collections created/updated for library '{library_name}'.")
             except Exception as e:
                 await ctx.send(f"Failed to process library '{library_name}': {e}")
                 print(f"Error creating collection for library '{library_name}': {e}")
