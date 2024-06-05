@@ -556,27 +556,24 @@ class BestOf(commands.Cog):
                     except Exception as e:
                         continue  # Ignore errors and continue to the next item
 
+        # Limit each category to 6 entries chosen randomly
         for category in categories.values():
             random.shuffle(category)
-
-        # Ensure no field value exceeds 1024 characters
-        def chunk_string(string, length):
-            return (string[0+i:length+i] for i in range(0, len(string), length))
+            if len(category) > 6:
+                category[:] = category[:6]
 
         # Create a single embed for all titles
         embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites", color=member.top_role.color)
         embed.set_thumbnail(url=member.avatar.url)
 
+        field_count = 0
         for category_name, title_list in categories.items():
             if title_list:
-                field_value = "\n".join(title_list)
-                if len(field_value) > 1024:
-                    chunks = list(chunk_string(field_value, 1024))
-                    for i, chunk in enumerate(chunks):
-                        embed.add_field(name=f"{category_name} (Part {i+1})", value=chunk, inline=False)
-                else:
-                    embed.add_field(name=category_name, value=field_value, inline=False)
-        
+                embed.add_field(name=category_name, value="\n".join(title_list), inline=True)
+                field_count += 1
+                if field_count % 2 == 0:
+                    embed.add_field(name='\u200b', value='\u200b', inline=True)  # Add a blank field for alignment
+
         # Random background image from one of the voted titles
         random_background_url = await self.get_random_background(user_votes)
         if random_background_url:
