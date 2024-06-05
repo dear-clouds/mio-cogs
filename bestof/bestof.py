@@ -461,68 +461,67 @@ class BestOf(commands.Cog):
                             votes[year][library_name][(title, item_key)] += 1
         return votes
 
-@bestof.command(name='createcollection')
-@commands.has_guild_permissions(administrator=True)
-async def createcollection(self, ctx):
-    """Create a Plex collection for the most voted title of each year for each library."""
-    allowed_libraries = await self.config.allowed_libraries()
-    description = await self.config.description()
-    poster_url = await self.config.poster()
-    
-    if not allowed_libraries:
-        await ctx.send("No allowed libraries set. Please set the allowed libraries first.")
-        return
+    @bestof.command(name='createcollection')
+    @commands.has_guild_permissions(administrator=True)
+    async def createcollection(self, ctx):
+        """Create a Plex collection for the most voted title of each year for each library."""
+        allowed_libraries = await self.config.allowed_libraries()
+        description = await self.config.description()
+        poster_url = await self.config.poster()
+        
+        if not allowed_libraries:
+            await ctx.send("No allowed libraries set. Please set the allowed libraries first.")
+            return
 
-    collection_links = []
+        collection_links = []
 
-    for library_name in allowed_libraries:
-        try:
-            library = self.plex.library.section(library_name)
-            server_name = self.plex.friendlyName
-            top_titles = await self.get_top_titles_for_library(library_name)
+        for library_name in allowed_libraries:
+            try:
+                library = self.plex.library.section(library_name)
+                server_name = self.plex.friendlyName
+                top_titles = await self.get_top_titles_for_library(library_name)
 
-            for year, top_title in top_titles.items():
-                collection_title = f"{server_name}'s Awards"
-                collection = await self.get_collection(library, collection_title)
-                if not collection:
-                    # Creating a new collection
-                    collection = library.createCollection(
-                        title=collection_title,
-                        smart=False,
-                        summary=description,
-                        **({'poster': poster_url} if poster_url else {})
-                    )
-                else:
-                    # Editing an existing collection
-                    collection.edit(
-                        summary=description,
-                        **({'poster': poster_url} if poster_url else {})
-                    )
-
-                if top_title:
-                    # Search for the title in the library and add it to the collection
-                    search_results = library.search(top_title)
-                    if search_results:
-                        collection.addItems(search_results[0])
+                for year, top_title in top_titles.items():
+                    collection_title = f"{server_name}'s Awards"
+                    collection = await self.get_collection(library, collection_title)
+                    if not collection:
+                        # Creating a new collection
+                        collection = library.createCollection(
+                            title=collection_title,
+                            smart=False,
+                            summary=description,
+                            **({'poster': poster_url} if poster_url else {})
+                        )
                     else:
-                        await ctx.send(f"Title '{top_title}' not found in library '{library_name}' for year '{year}'.")
+                        # Editing an existing collection
+                        collection.edit(
+                            summary=description,
+                            **({'poster': poster_url} if poster_url else {})
+                        )
 
-                # Generating the collection URL
-                collection_url = f"{self.plex._baseurl}/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={collection.key}"
-                collection_links.append((library_name, collection_url))
+                    if top_title:
+                        # Search for the title in the library and add it to the collection
+                        search_results = library.search(top_title)
+                        if search_results:
+                            collection.addItems(search_results[0])
+                        else:
+                            await ctx.send(f"Title '{top_title}' not found in library '{library_name}' for year '{year}'.")
 
-        except Exception as e:
-            await ctx.send(f"Failed to process library '{library_name}': {e}")
-            print(f"Error creating collection for library '{library_name}': {e}")
+                    # Generating the collection URL
+                    collection_url = f"{self.plex._baseurl}/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={collection.key}"
+                    collection_links.append((library_name, collection_url))
 
-    if collection_links:
-        for library_name, collection_url in collection_links:
-            await ctx.send(f"Collection for library '{library_name}' created/updated: {collection_url}")
-    else:
-        await ctx.send("No collections were created/updated.")
+            except Exception as e:
+                await ctx.send(f"Failed to process library '{library_name}': {e}")
+                print(f"Error creating collection for library '{library_name}': {e}")
 
-    await ctx.send("All specified collections have been processed.")
+        if collection_links:
+            for library_name, collection_url in collection_links:
+                await ctx.send(f"Collection for library '{library_name}' created/updated: {collection_url}")
+        else:
+            await ctx.send("No collections were created/updated.")
 
+        await ctx.send("All specified collections have been processed.")
 
     async def get_top_titles_for_library(self, library_name):
         """Get the most voted titles for a specific library."""
