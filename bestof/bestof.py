@@ -475,6 +475,21 @@ class BestOf(commands.Cog):
                 await ctx.send(f"Processing library: {library_name}")
                 try:
                     library = self.plex.library.section(library_name)
+                    items_to_add = []
+
+                    if library_name in top_titles:
+                        for title in top_titles[library_name]:
+                            await ctx.send(f"Searching for title: {title}")
+                            search_results = library.search(title)
+                            if search_results:
+                                items_to_add.append(search_results[0])
+                            else:
+                                await ctx.send(f"Title '{title}' not found in library '{library_name}'.")
+
+                    if not items_to_add:
+                        await ctx.send(f"No items to add to the collection for library '{library_name}'. Skipping...")
+                        continue
+
                     collection = await self.get_collection(library, collection_title)
                     if not collection:
                         await ctx.send(f"Creating new collection: {collection_title}")
@@ -482,6 +497,7 @@ class BestOf(commands.Cog):
                             title=collection_title,
                             smart=False,
                             summary=description,
+                            items=items_to_add,
                             **({'poster': poster_url} if poster_url else {})
                         )
                         await ctx.send(f"Created new collection: {collection_title}")
@@ -491,18 +507,8 @@ class BestOf(commands.Cog):
                             summary=description,
                             **({'poster': poster_url} if poster_url else {})
                         )
-                        await ctx.send(f"Updated existing collection: {collection_title}")
-
-                    if library_name in top_titles:
-                        for title in top_titles[library_name]:
-                            await ctx.send(f"Searching for title: {title}")
-                            search_results = library.search(title)
-                            if search_results:
-                                await ctx.send(f"Adding title to collection: {title}")
-                                collection.addItems(search_results[0])
-                                await ctx.send(f"Added '{title}' to collection '{collection_title}'")
-                            else:
-                                await ctx.send(f"Title '{title}' not found in library '{library_name}'.")
+                        collection.addItems(items_to_add)
+                        await ctx.send(f"Updated existing collection: {collection_title} with new items")
 
                 except Exception as e:
                     await ctx.send(f"Failed to process library '{library_name}': {e}")
