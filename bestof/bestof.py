@@ -747,4 +747,3 @@ class PreviousButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         self.view.current_page -= 1
         await self.view.update_embed(interaction)
-
