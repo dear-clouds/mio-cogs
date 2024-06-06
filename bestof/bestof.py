@@ -28,6 +28,7 @@ class BestOf(commands.Cog):
         self.plex = None
         self.description = None
         self.poster_url = None
+        self.sort_title = None
 
     async def cog_load(self):
         await self.initialize()
@@ -158,14 +159,24 @@ class BestOf(commands.Cog):
         """Shows the current configuration of the BestOf cog."""
         plex_server_url = await self.config.plex_server_url()
         plex_server_auth_token = await self.config.plex_server_auth_token()  # Not displaying the token for security reasons
+        tautulli_url = await self.config.tautulli_url()
+        tautulli_api = await self.config.tautulli_api()
         allowed_libraries = await self.config.allowed_libraries()
+        description = await self.config.description()
+        poster = await self.config.poster()
+        sort_title = await self.config.sort_title()
         default_color = await ctx.embed_color()
 
         embed = discord.Embed(title="BestOf Configuration", color=default_color)
 
         embed.add_field(name="Plex Server URL", value=plex_server_url or "Not Set", inline=False)
         embed.add_field(name="Plex Server Authentication Token", value="Hidden for security" or "Not Set", inline=False)
+        embed.add_field(name="Tautulli URL", value=tautulli_url or "Not Set", inline=False)
+        embed.add_field(name="Tautulli API Key", value="Hidden for security" if tautulli_api else "Not Set", inline=False)
         embed.add_field(name="Allowed Libraries", value=", ".join(allowed_libraries) if allowed_libraries else "None", inline=False)
+        embed.add_field(name="Description", value=description or "Not Set", inline=False)
+        embed.add_field(name="Poster URL", value=poster or "Not Set", inline=False)
+        embed.add_field(name="Sort Title", value=sort_title or "Not Set", inline=False)
 
         await ctx.send(embed=embed)
 
