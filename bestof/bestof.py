@@ -463,7 +463,7 @@ class BestOf(commands.Cog):
     @bestof.command(name='createcollection')
     @commands.has_guild_permissions(administrator=True)
     async def createcollection(self, ctx):
-        """Create a single Plex collection for the top voted titles of all years for each library."""
+        """Create or update a single Plex collection for the top voted titles of all years for each library."""
         allowed_libraries = await self.config.allowed_libraries()
         description = await self.config.description()
         poster_url = await self.config.poster()
@@ -499,31 +499,41 @@ class BestOf(commands.Cog):
                             else:
                                 await ctx.send(f"Title '{title}' not found in library '{library_name}'.")
 
-                    if not items_to_add:
-                        await ctx.send(f"No items to add to the collection for library '{library_name}'. Skipping...")
-                        continue
-
                     collection = await self.get_collection(library, collection_title)
                     if not collection:
-                        await ctx.send(f"Creating new collection: {collection_title}")
-                        collection = library.createCollection(
-                            title=collection_title,
-                            smart=False,
-                            summary=description,
-                            items=items_to_add,
-                            **({'poster': poster_url} if poster_url else {}),
-                            sortTitle=sort_title
-                        )
-                        await ctx.send(f"Created new collection: {collection_title}")
+                        if items_to_add:
+                            await ctx.send(f"Creating new collection: {collection_title}")
+                            collection = library.createCollection(
+                                title=collection_title,
+                                smart=False,
+                                summary=description,
+                                items=items_to_add,
+                                **({'poster': poster_url} if poster_url else {}),
+                                sortTitle=sort_title
+                            )
+                            await ctx.send(f"Created new collection: {collection_title}")
                     else:
-                        await ctx.send(f"Editing existing collection: {collection_title}")
+                        current_items = {item.ratingKey for item in collection.items()}
+                        new_items = {item.ratingKey for item in items_to_add}
+
+                        items_to_remove = current_items - new_items
+                        items_to_add = new_items - current_items
+
+                        if items_to_remove:
+                            collection.removeItems([library.fetchItem(ratingKey) for ratingKey in items_to_remove])
+                            await ctx.send(f"Removed old items from collection: {collection_title}")
+
+                        if items_to_add:
+                            collection.addItems([library.fetchItem(ratingKey) for ratingKey in items_to_add])
+                            await ctx.send(f"Added new items to collection: {collection_title}")
+
+                        # Always update the description, poster, and sort title
                         collection.edit(
                             summary=description,
                             **({'poster': poster_url} if poster_url else {}),
                             sortTitle=sort_title
                         )
-                        collection.addItems(items_to_add)
-                        await ctx.send(f"Updated existing collection: {collection_title} with new items")
+                        await ctx.send(f"Updated existing collection: {collection_title}")
 
                 except Exception as e:
                     await ctx.send(f"Failed to process library '{library_name}': {e}")
