@@ -8,6 +8,14 @@ from datetime import datetime
 from typing import Optional
 import random
 import requests
+import logging
+
+logger = logging.getLogger('BestOf')
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
 
 class BestOf(commands.Cog):
     def __init__(self, bot):
@@ -468,9 +476,13 @@ class BestOf(commands.Cog):
         allowed_libraries = await self.config.allowed_libraries()
         description = await self.config.description()
         poster_url = await self.config.poster()
-        
+
         if not allowed_libraries:
             await ctx.send("No allowed libraries set. Please set the allowed libraries first.")
+            return
+
+        if not self.plex:
+            await ctx.send("Plex server not configured properly.")
             return
 
         for library_name in allowed_libraries:
@@ -481,7 +493,7 @@ class BestOf(commands.Cog):
                 await ctx.send(f"Processing library: {library_name}")
 
                 for year, top_title in top_titles.items():
-                    collection_title = f"{server_name}'s Awards {year}"
+                    collection_title = f"{server_name}'s Awards"
                     await ctx.send(f"Creating/updating collection: {collection_title}")
 
                     collection = await self.get_collection(library, collection_title)
@@ -517,7 +529,7 @@ class BestOf(commands.Cog):
 
             except Exception as e:
                 await ctx.send(f"Failed to process library '{library_name}': {e}")
-                print(f"Error creating collection for library '{library_name}': {e}")
+                logger.error(f"Error creating collection for library '{library_name}': {e}", exc_info=True)
 
         await ctx.send("All specified collections have been processed.")
 
