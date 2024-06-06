@@ -500,6 +500,7 @@ class BestOf(commands.Cog):
                                 await ctx.send(f"Title '{title}' not found in library '{library_name}'.")
 
                     collection = await self.get_collection(library, collection_title)
+                    # When creating a new collection
                     if not collection:
                         if items_to_add:
                             await ctx.send(f"Creating new collection: {collection_title}")
@@ -508,11 +509,13 @@ class BestOf(commands.Cog):
                                 smart=False,
                                 summary=description,
                                 items=items_to_add,
-                                sortTitle=sort_title
                             )
+                            if sort_title:
+                                collection.edit(sortTitle=sort_title)
                             if poster_url:
                                 collection.uploadPoster(url=poster_url)
                             await ctx.send(f"Created new collection: {collection_title}")
+                    # When updating an existing collection
                     else:
                         current_items = {item.ratingKey for item in collection.items()}
                         new_items = {item.ratingKey for item in items_to_add}
@@ -531,7 +534,7 @@ class BestOf(commands.Cog):
                         # Always update the description, poster, and sort title
                         collection.edit(
                             summary=description,
-                            sortTitle=sort_title
+                            **({'sortTitle': sort_title} if sort_title else {})
                         )
                         if poster_url:
                             collection.uploadPoster(url=poster_url)
