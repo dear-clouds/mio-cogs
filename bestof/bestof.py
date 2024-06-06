@@ -508,9 +508,10 @@ class BestOf(commands.Cog):
                                 smart=False,
                                 summary=description,
                                 items=items_to_add,
-                                **({'poster': poster_url} if poster_url else {}),
                                 sortTitle=sort_title
                             )
+                            if poster_url:
+                                collection.uploadPoster(url=poster_url)
                             await ctx.send(f"Created new collection: {collection_title}")
                     else:
                         current_items = {item.ratingKey for item in collection.items()}
@@ -530,9 +531,10 @@ class BestOf(commands.Cog):
                         # Always update the description, poster, and sort title
                         collection.edit(
                             summary=description,
-                            **({'poster': poster_url} if poster_url else {}),
                             sortTitle=sort_title
                         )
+                        if poster_url:
+                            collection.uploadPoster(url=poster_url)
                         await ctx.send(f"Updated existing collection: {collection_title}")
 
                 except Exception as e:
