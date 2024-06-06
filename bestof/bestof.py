@@ -22,6 +22,7 @@ class BestOf(commands.Cog):
             allowed_libraries=[],
             description=None,
             poster=None
+            sortitle=None
         )
         self.config.register_user(votes={})
         self.plex = None
@@ -37,6 +38,7 @@ class BestOf(commands.Cog):
         plex_server_auth_token = await self.config.plex_server_auth_token()
         self.description = await self.config.description()
         self.poster_url = await self.config.poster()
+        self.sort_title = await self.config.sort_title()
         
         try:
             self.plex = PlexServer(plex_server_url, plex_server_auth_token)
@@ -95,17 +97,23 @@ class BestOf(commands.Cog):
         await self.config.tmdb_key.set(key)
         await ctx.send(f"TMDB Api Key set to `{key}`.")
             
+    @bestof.command(name="description")
+    async def set_description(self, ctx, *, description: str):
+        """Sets the description for the created Plex collection."""
+        await self.config.description.set(description)
+        await ctx.send("Description set.")
+
     @bestof.command(name="poster")
     async def set_poster(self, ctx, url: str):
         """Sets the poster URL for the created Plex collection."""
         await self.config.poster.set(url)
         await ctx.send(f"Poster URL set to: {url}")
 
-    @bestof.command(name="description")
-    async def set_description(self, ctx, *, description: str):
-        """Sets the description for the created Plex collection."""
-        await self.config.description.set(description)
-        await ctx.send("Description set.")
+    @bestof.command(name="sorttitle")
+    async def set_sort_title(self, ctx, *, sort_title: str):
+        """Sets the sort title for the created Plex collection."""
+        await self.config.sort_title.set(sort_title)
+        await ctx.send(f"Sort title set to: {sort_title}")
 
     @bestof.command(name="libraries")
     async def set_libraries(self, ctx: commands.Context):
@@ -317,13 +325,6 @@ class BestOf(commands.Cog):
                 top_titles[year][library_name] = top_title
 
         return top_titles
-
-    async def get_collection(self, library, collection_title):
-        """Returns a Plex collection with the given title if it exists, else None."""
-        for collection in library.collections():
-            if collection.title == collection_title:
-                return collection
-        return None
         
     @commands.hybrid_command(name="topvotes", description="Show top voted titles")
     async def topvotes(self, ctx_or_interaction, specified_year: Optional[int] = None):
@@ -455,6 +456,7 @@ class BestOf(commands.Cog):
         allowed_libraries = await self.config.allowed_libraries()
         description = await self.config.description()
         poster_url = await self.config.poster()
+        sort_title = await self.config.sort_title()
 
         if not allowed_libraries:
             await ctx.send("No allowed libraries set. Please set the allowed libraries first.")
@@ -498,14 +500,16 @@ class BestOf(commands.Cog):
                             smart=False,
                             summary=description,
                             items=items_to_add,
-                            **({'poster': poster_url} if poster_url else {})
+                            **({'poster': poster_url} if poster_url else {}),
+                            sortTitle=sort_title
                         )
                         await ctx.send(f"Created new collection: {collection_title}")
                     else:
                         await ctx.send(f"Editing existing collection: {collection_title}")
                         collection.edit(
                             summary=description,
-                            **({'poster': poster_url} if poster_url else {})
+                            **({'poster': poster_url} if poster_url else {}),
+                            sortTitle=sort_title
                         )
                         collection.addItems(items_to_add)
                         await ctx.send(f"Updated existing collection: {collection_title} with new items")
