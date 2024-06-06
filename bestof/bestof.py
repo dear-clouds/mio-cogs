@@ -514,7 +514,6 @@ class BestOf(commands.Cog):
                                 collection.uploadPoster(url=poster_url)
                             # Set sort title after creation
                             if sort_title:
-                                collection = self.plex.library.collection(collection.ratingKey)
                                 collection.edit(
                                     sortTitle=sort_title
                                 )
@@ -539,12 +538,8 @@ class BestOf(commands.Cog):
                         # Always update the description, poster, and sort title
                         collection.edit(
                             summary=description,
+                            **({'sortTitle': sort_title} if sort_title else {})
                         )
-                        if sort_title:
-                            collection = self.plex.library.collection(collection.ratingKey)
-                            collection.edit(
-                                sortTitle=sort_title
-                            )
                         if poster_url:
                             collection.uploadPoster(url=poster_url)
                         await ctx.send(f"Updated existing collection: {collection_title}")
