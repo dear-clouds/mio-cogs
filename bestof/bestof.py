@@ -10,13 +10,6 @@ import random
 import requests
 import logging
 
-logger = logging.getLogger('BestOf')
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
-
 class BestOf(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -485,58 +478,72 @@ class BestOf(commands.Cog):
             await ctx.send("Plex server not configured properly.")
             return
 
-        for library_name in allowed_libraries:
-            try:
-                library = self.plex.library.section(library_name)
-                server_name = self.plex.friendlyName
-                top_titles = await self.get_top_titles_for_library(library_name)
+        try:
+            for library_name in allowed_libraries:
                 await ctx.send(f"Processing library: {library_name}")
+                try:
+                    library = self.plex.library.section(library_name)
+                    server_name = self.plex.friendlyName
+                    top_titles = await self.get_top_titles_for_library(library_name)
+                    await ctx.send(f"Top titles for library {library_name}: {top_titles}")
 
-                for year, top_title in top_titles.items():
-                    collection_title = f"{server_name}'s Awards"
-                    await ctx.send(f"Creating/updating collection: {collection_title}")
+                    for year, top_title in top_titles.items():
+                        collection_title = f"{server_name}'s Awards {year}"
+                        await ctx.send(f"Creating/updating collection: {collection_title}")
 
-                    collection = await self.get_collection(library, collection_title)
-                    if not collection:
-                        # Creating a new collection
-                        await ctx.send(f"Creating new collection: {collection_title}")
-                        collection = library.createCollection(
-                            title=collection_title,
-                            smart=False,
-                            summary=description,
-                            **({'poster': poster_url} if poster_url else {})
-                        )
-                        await ctx.send(f"Created new collection: {collection_title}")
-                    else:
-                        # Editing an existing collection
-                        await ctx.send(f"Editing existing collection: {collection_title}")
-                        collection.edit(
-                            summary=description,
-                            **({'poster': poster_url} if poster_url else {})
-                        )
-                        await ctx.send(f"Updated existing collection: {collection_title}")
-
-                    if top_title:
-                        # Search for the title in the library and add it to the collection
-                        await ctx.send(f"Searching for title: {top_title}")
-                        search_results = library.search(top_title)
-                        if search_results:
-                            await ctx.send(f"Adding title to collection: {top_title}")
-                            collection.addItems(search_results[0])
-                            await ctx.send(f"Added '{top_title}' to collection '{collection_title}'")
+                        collection = await self.get_collection(library, collection_title)
+                        if not collection:
+                            await ctx.send(f"Creating new collection: {collection_title}")
+                            collection = library.createCollection(
+                                title=collection_title,
+                                smart=False,
+                                summary=description,
+                                **({'poster': poster_url} if poster_url else {})
+                            )
+                            await ctx.send(f"Created new collection: {collection_title}")
                         else:
-                            await ctx.send(f"Title '{top_title}' not found in library '{library_name}' for year '{year}'.")
+                            await ctx.send(f"Editing existing collection: {collection_title}")
+                            collection.edit(
+                                summary=description,
+                                **({'poster': poster_url} if poster_url else {})
+                            )
+                            await ctx.send(f"Updated existing collection: {collection_title}")
 
-            except Exception as e:
-                await ctx.send(f"Failed to process library '{library_name}': {e}")
-                logger.error(f"Error creating collection for library '{library_name}': {e}", exc_info=True)
+                        if top_title:
+                            await ctx.send(f"Searching for title: {top_title}")
+                            search_results = library.search(top_title)
+                            if search_results:
+                                await ctx.send(f"Adding title to collection: {top_title}")
+                                collection.addItems(search_results[0])
+                                await ctx.send(f"Added '{top_title}' to collection '{collection_title}'")
+                            else:
+                                await ctx.send(f"Title '{top_title}' not found in library '{library_name}' for year '{year}'.")
 
-        await ctx.send("All specified collections have been processed.")
+                except Exception as e:
+                    await ctx.send(f"Failed to process library '{library_name}': {e}")
+                    print(f"Error creating collection for library '{library_name}': {e}")
+
+            await ctx.send("All specified collections have been processed.")
+        except Exception as e:
+            await ctx.send(f"An error occurred while processing collections: {e}")
+            print(f"Error in createcollection command: {e}")
 
     async def get_top_titles_for_library(self, library_name):
         """Get the most voted titles for a specific library."""
         top_titles = await self.get_top_titles()
         return top_titles.get(library_name, {})
+
+    async def get_top_titles(self):
+        user_data = await self.config.all_users()
+        votes = self.process_votes(user_data)
+        top_titles = {}
+        for year, libraries in votes.items():
+            top_titles[year] = {}
+            for library_name, titles in libraries.items():
+                if titles:
+                    top_title = max(titles, key=titles.get)
+                    top_titles[year][library_name] = top_title
+        return top_titles
         
     @commands.command()
     async def favs(self, ctx, *, member: discord.Member = None):
