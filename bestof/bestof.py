@@ -21,7 +21,7 @@ class BestOf(commands.Cog):
             tautulli_api=None,
             allowed_libraries=[],
             description=None,
-            poster=None
+            poster=None,
             sortitle=None
         )
         self.config.register_user(votes={})
