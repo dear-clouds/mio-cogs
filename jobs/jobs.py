@@ -9,11 +9,11 @@ class Jobs(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=1995987654322)
         default_guild = {
-        "job_channel_id": None,
-        "poster_roles": [],
-        "seeker_roles": [],
-        "jobs": {},
-        "thumb_done": "https://i.imgur.com/0YBdp8p.png"
+            "job_channel_id": None,
+            "poster_roles": [],
+            "seeker_roles": [],
+            "jobs": {},
+            "thumb_done": "https://i.imgur.com/0YBdp8p.png"
         }
         default_user = {"jobs_posted": 0, "jobs_taken": 0}
         self.config.register_user(**default_user)
@@ -274,14 +274,8 @@ class JobView(discord.ui.View):
         return await self.jobs_cog.can_take(interaction.user)
 
     async def on_timeout(self) -> None:
-        for item in self.children:
-            if isinstance(item, discord.ui.Button):
-                item.disabled = True
-        if self._message is not None:
-            try:
-                await self._message.edit(view=self)
-            except discord.HTTPException:
-                pass
+        # Do nothing, to keep the view active
+        pass
 
     @discord.ui.button(label="Apply", emoji="💼", style=discord.ButtonStyle.primary)
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -428,7 +422,7 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
 
     salary = discord.ui.TextInput(
         label="Salary",
-        placeholder="The amount will be withdrawn after submission",
+        placeholder="The amount will be withdrawn immediately after submission.",
         style=discord.TextStyle.short,
         required=True,
     )
