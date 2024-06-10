@@ -149,9 +149,10 @@ class BestOf(commands.Cog):
     @bestof.command(name='reset')
     @commands.has_guild_permissions(administrator=True)
     async def reset_config(self, ctx):
-        """Reset the cog configuration for this server."""
+        """Reset the cog configuration for this server and all user votes."""
         await self.config.guild(ctx.guild).clear()
-        await ctx.send("Cog configuration has been reset for this server.")
+        await self.config.clear_all_users()
+        await ctx.send("Cog configuration and all user votes have been reset for this server.")
         
     @bestof.command(name="config")
     @commands.is_owner()
