@@ -19,6 +19,7 @@ class BestOf(commands.Cog):
             plex_server_auth_token=None,
             tautulli_url=None,
             tautulli_api=None,
+            tmdb_key=None,
             allowed_libraries=[],
             description=None,
             poster=None,
@@ -29,6 +30,7 @@ class BestOf(commands.Cog):
         self.description = None
         self.poster_url = None
         self.sort_title = None
+        self.tmdb_key = None    
 
     async def cog_load(self):
         await self.initialize()
@@ -37,6 +39,7 @@ class BestOf(commands.Cog):
         await self.bot.wait_until_ready()
         plex_server_url = await self.config.plex_server_url()
         plex_server_auth_token = await self.config.plex_server_auth_token()
+        self.tmdb_key = await self.config.tmdb_key()
         self.description = await self.config.description()
         self.poster_url = await self.config.poster()
         self.sort_title = await self.config.sort_title()
@@ -678,8 +681,12 @@ class BestOf(commands.Cog):
             for library_name, vote_info in libraries.items():
                 if vote_info:
                     item_key = vote_info.get('item_key')
+                    item_title = vote_info.get('title')
+                    library_type = 'movie' if 'Movie' in library_name else 'tv'
+                    item_year = year
                     try:
-                        image_url = await self.fetch_image_from_tautulli(item_key)
+                        # image_url = await self.fetch_image_from_tautulli(item_key)
+                        image_url = await self.fetch_image_from_tmdb(item_title, item_year, library_type)
                         if image_url:
                             backgrounds.append(image_url)
                     except Exception as e:
@@ -716,6 +723,36 @@ class BestOf(commands.Cog):
                 print(f"Error: Tautulli API responded with status code {response.status_code}")
         except Exception as e:
             print(f"Exception occurred while fetching image from Tautulli: {e}")
+
+        return None
+    
+    async def fetch_image_from_tmdb(self, title, year, media_type):
+        if not self.tmdb_key:
+            print("TMDb API key is not configured.")
+            return None
+
+        search_url = f"https://api.themoviedb.org/3/search/{media_type}"
+        params = {
+            'api_key': self.tmdb_key,
+            'query': title,
+            'year': year
+        }
+
+        try:
+            response = await self.bot.loop.run_in_executor(None, lambda: requests.get(search_url, params=params))
+            if response.status_code == 200:
+                data = response.json()
+                if data['results']:
+                    first_result = data['results'][0]
+                    poster_path = first_result.get('poster_path')
+                    if poster_path:
+                        image_url = f"https://image.tmdb.org/t/p/original{poster_path}"
+                        print(f"TMDb Image URL for '{title}' ({year}): {image_url}")  # Log the URL for debugging
+                        return image_url
+            else:
+                print(f"Error: TMDb API responded with status code {response.status_code}")
+        except Exception as e:
+            print(f"Exception occurred while fetching image from TMDb: {e}")
 
         return None
 
