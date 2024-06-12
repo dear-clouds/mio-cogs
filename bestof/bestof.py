@@ -661,6 +661,7 @@ class BestOf(commands.Cog):
         random_background_url = await self.get_random_background(user_votes)
         if random_background_url:
             embed.set_image(url=random_background_url)
+            await ctx.send(f"Background image fetched: {random_background_url}")
         
         # Define the buttons and pass the cog instance
         vote_button = VoteButton(self)
