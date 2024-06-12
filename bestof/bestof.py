@@ -2,7 +2,7 @@ import discord
 import plexapi
 import asyncio
 from redbot.core import commands, Config, app_commands
-from discord.ui import View, Select
+from discord.ui import View, Select, Button
 from plexapi.server import PlexServer
 from datetime import datetime
 from typing import Optional
