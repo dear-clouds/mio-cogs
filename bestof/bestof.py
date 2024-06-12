@@ -221,113 +221,20 @@ class BestOf(commands.Cog):
 
         try:
             if is_tv_show:
-                item = next((show for show in library.search(title) if show.type == 'show'), None)
+                search_results = [show for show in library.search(title) if show.type == 'show']
             else:
-                item = next((movie for movie in library.search(title) if movie.type == 'movie'), None)
+                search_results = [movie for movie in library.search(title) if movie.type == 'movie']
         except Exception as e:
             await interaction.followup.send("Failed to search for the title in Plex library.")
             return  # Early return on error
 
-        if not item:
-            await interaction.followup.send("Item not found.")
-            return
-        
-        item_key = item.key
-        item_title = item.title
-        item_year = item.year if item.year else "Unknown Year"
-        poster_url = await self.fetch_image_from_tautulli(item_key)
-
-        # Get current year
-        current_year = datetime.now().year
-        
-        if item.year is None or item.year >= current_year:
-            await interaction.followup.send(f"You can only vote for titles from previous years, not from {current_year}.", ephemeral=True)
+        if not search_results:
+            await interaction.followup.send("No items found with the specified title.", ephemeral=True)
             return
 
-        # Confirm with the user that the correct item was found
-        plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
-        title_year = item.year if item.year else "Unknown Year"
-        
-        # Get the member's highest role with a non-default color
-        member = interaction.user
-        role_color = discord.Color.default()
-        if isinstance(member, discord.Member):
-            roles = sorted(member.roles, key=lambda r: r.position, reverse=True)
-            for role in roles:
-                if role.color.value != 0:  # Check if the role has a non-default color
-                    role_color = role.color
-                    break
-
-        # Creating the embed
-        embed = discord.Embed(
-            title=item.title,
-            url=plex_web_url,
-            description=f"{item.summary}\n\n📌 **You will be voting for this title for the year {title_year}.**",
-            color=role_color
-        )
-
-        # Add poster URL if available
-        if poster_url:
-            embed.set_image(url=poster_url)
-
-        # Send a message mentioning the user along with the embed
-        user_mention = interaction.user.mention  # Get the mention string for the user
-        mention_message = f"{user_mention}, please confirm the title."
-        
-        # Send the embed and add reactions to the same message
-        msg = await interaction.followup.send(content=mention_message, embed=embed)
-        await msg.add_reaction("✅")
-        await msg.add_reaction("❌")
-
-        # Reaction check
-        def check(reaction, user):
-            return user == interaction.user and reaction.message.id == msg.id and str(reaction.emoji) in ["✅", "❌"]
-
-        try:
-            reaction, _ = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
-            if str(reaction.emoji) == "❌":
-                await interaction.followup.send("Vote canceled. Make sure it's the exact same title on the Plex server.", ephemeral=True)
-                return
-        except asyncio.TimeoutError:
-            await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
-            return
-        
-        # Retrieve the current votes for the user
-        user_votes = await self.config.user(interaction.user).votes()
-        
-        # Use the title's release year as the key
-        year_str = str(item_year)
-        year_votes = user_votes.get(year_str, {})
-        library_vote = year_votes.get(library_name, {})
-
-        if library_vote:
-            existing_title = library_vote.get('title')
-            if existing_title:
-                # Send a confirmation message
-                confirm_message = await interaction.followup.send(
-                    f"You have already voted for **{existing_title}** in **{library_name}** for the year **{item_year}**. "
-                    "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
-                )
-
-                # Check for user response
-                def check_confirm(m):
-                    return m.author == interaction.user and m.channel == interaction.channel
-
-                try:
-                    confirm_response = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
-                    if confirm_response.content.lower() != 'yes':
-                        await interaction.followup.send("Vote not replaced.", ephemeral=True)
-                        return
-                except asyncio.TimeoutError:
-                    await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
-                    return
-
-        # Add or update the vote
-        year_votes[library_name] = {'title': item_title, 'item_key': item_key}
-        user_votes[year_str] = year_votes
-        await self.config.user(interaction.user).votes.set(user_votes)
-
-        await interaction.followup.send(f"Vote for `{title}` ({item_year}) recorded.", ephemeral=True)
+        # Define a view for pagination
+        view = TitleSelectView(self, interaction, library_name, search_results)
+        await interaction.followup.send(content="Please select the correct title using the buttons below.", view=view)
 
     async def get_top_titles(self):
         # Get data for all users who voted
@@ -889,3 +796,127 @@ class PreviousButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         self.view.current_page -= 1
         await self.view.update_embed(interaction)
+
+class TitleSelectView(discord.ui.View):
+    def __init__(self, cog, interaction, library_name, search_results):
+        super().__init__(timeout=60)
+        self.cog = cog
+        self.interaction = interaction
+        self.library_name = library_name
+        self.search_results = search_results
+        self.current_index = 0
+
+        self.prev_button = discord.ui.Button(label="Previous", style=discord.ButtonStyle.secondary)
+        self.prev_button.callback = self.show_previous
+
+        self.next_button = discord.ui.Button(label="Next", style=discord.ButtonStyle.secondary)
+        self.next_button.callback = self.show_next
+
+        self.confirm_button = discord.ui.Button(label="Confirm", style=discord.ButtonStyle.success)
+        self.confirm_button.callback = self.confirm_selection
+
+        self.update_buttons()
+
+    def update_buttons(self):
+        self.clear_items()
+        if self.current_index > 0:
+            self.add_item(self.prev_button)
+        if self.current_index < len(self.search_results) - 1:
+            self.add_item(self.next_button)
+        self.add_item(self.confirm_button)
+        self.add_item(discord.ui.Button(label="Cancel", style=discord.ButtonStyle.danger, custom_id="cancel"))
+
+    async def show_previous(self, interaction):
+        self.current_index -= 1
+        await self.update_message(interaction)
+
+    async def show_next(self, interaction):
+        self.current_index += 1
+        await self.update_message(interaction)
+
+    async def update_message(self, interaction):
+        item = self.search_results[self.current_index]
+        embed = self.create_embed(item)
+        await interaction.response.edit_message(embed=embed, view=self)
+        self.update_buttons()
+
+    def create_embed(self, item):
+        role_color = discord.Color.default()
+        if isinstance(self.interaction.user, discord.Member):
+            roles = sorted(self.interaction.user.roles, key=lambda r: r.position, reverse=True)
+            for role in roles:
+                if role.color.value != 0:  # Check if the role has a non-default color
+                    role_color = role.color
+                    break
+
+        plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.cog.plex.machineIdentifier}/details?key={item.key}"
+        title_year = item.year if item.year else "Unknown Year"
+        embed = discord.Embed(
+            title=item.title,
+            url=plex_web_url,
+            description=f"{item.summary}\n\n📌 **You will be voting for this title for the year {title_year}.**",
+            color=role_color
+        )
+
+        poster_url = self.cog.fetch_image_from_tautulli(item.key)
+        if poster_url:
+            embed.set_image(url=poster_url)
+
+        return embed
+
+    async def confirm_selection(self, interaction):
+        item = self.search_results[self.current_index]
+        await self.cog.confirm_vote(self.interaction, self.library_name, item)
+        await interaction.response.edit_message(content="Vote recorded.", embed=None, view=None)
+
+    async def interaction_check(self, interaction):
+        return interaction.user == self.interaction.user
+
+async def confirm_vote(self, interaction, library_name, item):
+    item_key = item.key
+    item_title = item.title
+    item_year = item.year if item.year else "Unknown Year"
+
+    # Get current year
+    current_year = datetime.now().year
+
+    if item.year is None or item.year >= current_year:
+        await interaction.followup.send(f"You can only vote for titles from previous years, not from {current_year}.", ephemeral=True)
+        return
+
+    # Retrieve the current votes for the user
+    user_votes = await self.config.user(interaction.user).votes()
+
+    # Use the title's release year as the key
+    year_str = str(item_year)
+    year_votes = user_votes.get(year_str, {})
+    library_vote = year_votes.get(library_name, {})
+
+    if library_vote:
+        existing_title = library_vote.get('title')
+        if existing_title:
+            # Send a confirmation message
+            confirm_message = await interaction.followup.send(
+                f"You have already voted for **{existing_title}** in **{library_name}** for the year **{item_year}**. "
+                "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
+            )
+
+            # Check for user response
+            def check_confirm(m):
+                return m.author == interaction.user and m.channel == interaction.channel
+
+            try:
+                confirm_response = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
+                if confirm_response.content.lower() != 'yes':
+                    await interaction.followup.send("Vote not replaced.", ephemeral=True)
+                    return
+            except asyncio.TimeoutError:
+                await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
+                return
+
+    # Add or update the vote
+    year_votes[library_name] = {'title': item_title, 'item_key': item_key}
+    user_votes[year_str] = year_votes
+    await self.config.user(interaction.user).votes.set(user_votes)
+
+    await interaction.followup.send(f"Vote for `{item_title}` ({item_year}) recorded.", ephemeral=True)
