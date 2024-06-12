@@ -25,7 +25,10 @@ class BestOf(commands.Cog):
             poster=None,
             sortitle=None
         )
-        self.config.register_user(votes={})
+        self.config.register_user(
+            votes={},
+            backdrops={}
+        )
         self.plex = None
         self.description = None
         self.poster_url = None
@@ -599,14 +602,18 @@ class BestOf(commands.Cog):
             if collection.title == collection_title:
                 return collection
         return None
-        
+            
     @commands.command()
     async def favs(self, ctx, *, member: discord.Member = None):
         member = member or ctx.author
         user_votes = await self.config.user(member).votes()
+        user_backdrops = await self.config.user(member).backdrops()
         if not user_votes:
             await ctx.send(f"{member.display_name} hasn't voted for any titles yet.")
             return
+
+        # Calculate the total number of votes
+        total_votes = sum(len(libraries) for libraries in user_votes.values())
 
         # Prepare lists for each category
         categories = {
@@ -646,7 +653,7 @@ class BestOf(commands.Cog):
                 category[:] = category[:6]
 
         # Create a single embed for all titles
-        embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites", color=member.top_role.color)
+        embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites ({total_votes})", color=member.top_role.color)
         embed.set_thumbnail(url=member.avatar.url)
 
         field_count = 0
@@ -658,10 +665,10 @@ class BestOf(commands.Cog):
                     embed.add_field(name='\u200b', value='\u200b', inline=True)  # Add a blank field for alignment
 
         # Random background image from one of the voted titles
-        random_background_url = await self.get_random_background(user_votes)
+        random_background_url = await self.get_random_background(user_votes, user_backdrops)
         if random_background_url:
             embed.set_image(url=random_background_url)
-            await ctx.send(f"Background image fetched: {random_background_url}")
+            # await ctx.send(f"Background image fetched: {random_background_url}")
         
         # Define the buttons and pass the cog instance
         vote_button = VoteButton(self)
@@ -675,7 +682,7 @@ class BestOf(commands.Cog):
         # Send the embed with the View
         await ctx.send(embed=embed, view=view)
 
-    async def get_random_background(self, user_votes):
+    async def get_random_background(self, user_votes, user_backdrops):
         # print("Entering get_random_background")
         backgrounds = []
         for year, libraries in user_votes.items():
@@ -685,14 +692,22 @@ class BestOf(commands.Cog):
                     item_title = vote_info.get('title')
                     library_type = 'movie' if 'Movie' in library_name else 'tv'
                     item_year = year
-                    try:
-                        # image_url = await self.fetch_image_from_tautulli(item_key)
-                        image_url = await self.fetch_image_from_tmdb(item_title, item_year, library_type)
-                        if image_url:
-                            backgrounds.append(image_url)
-                    except Exception as e:
-                        print(f"Error fetching image for item key {item_key} from Tautulli: {e}")
-                        continue
+                    
+                    # Check if the backdrop is already stored
+                    backdrop_url = user_backdrops.get(item_key)
+                    if not backdrop_url:
+                        try:
+                            image_url, backdrop_path = await self.fetch_image_from_tmdb(item_title, item_year, library_type)
+                            if image_url:
+                                backgrounds.append(image_url)
+                                # Store the backdrop URL
+                                user_backdrops[item_key] = image_url
+                                await self.config.user(user_votes).backdrops.set(user_backdrops)
+                        except Exception as e:
+                            print(f"Error fetching image for item key {item_key} from TMDb: {e}")
+                            continue
+                    else:
+                        backgrounds.append(backdrop_url)
 
         chosen_image = random.choice(backgrounds) if backgrounds else None
         # print(f"Chosen image URL: {chosen_image}")
@@ -731,7 +746,7 @@ class BestOf(commands.Cog):
         tmdb_key = await self.config.tmdb_key()
         if not tmdb_key:
             print("TMDb API key is not configured.")
-            return None
+            return None, None
 
         search_url = f"https://api.themoviedb.org/3/search/{media_type}"
         params = {
@@ -762,7 +777,7 @@ class BestOf(commands.Cog):
                             if backdrop_path:
                                 image_url = f"https://image.tmdb.org/t/p/original{backdrop_path}"
                                 print(f"TMDb Backdrop Image URL for '{title}' ({year}): {image_url}")  # Log the URL for debugging
-                                return image_url
+                                return image_url, backdrop_path
                         else:
                             print(f"No backdrops found for '{title}' ({year}).")
                     else:
@@ -772,7 +787,7 @@ class BestOf(commands.Cog):
         except Exception as e:
             print(f"Exception occurred while fetching image from TMDb: {e}")
 
-        return None
+        return None, None
 
 def paginate_titles(lists, titles_per_page=10):
     total_pages = max((len(lst) + titles_per_page - 1) // titles_per_page for lst in lists.values())
