@@ -234,7 +234,8 @@ class BestOf(commands.Cog):
 
         # Define a view for pagination
         view = TitleSelectView(self, interaction, library_name, search_results)
-        await interaction.followup.send(content="Please select the correct title using the buttons below.", view=view)
+        embed = await view.create_embed(search_results[0])
+        await interaction.followup.send(content="Please select the correct title using the buttons below.", embed=embed, view=view)
         
     async def confirm_vote(self, interaction, library_name, item):
         item_key = item.key
@@ -687,7 +688,6 @@ class BestOf(commands.Cog):
             response = await self.bot.loop.run_in_executor(None, lambda: requests.get(f"{tautulli_url}/api/v2", params=params))
             if response.status_code == 200:
                 data = response.json()
-                # print(f"Tautulli API Response: {data}")
                 if data['response']['result'] == 'success':
                     image_url = data['response']['data'].get('art') or data['response']['data'].get('thumb')
                     if image_url:
