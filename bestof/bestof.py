@@ -728,28 +728,45 @@ class BestOf(commands.Cog):
         return None
     
     async def fetch_image_from_tmdb(self, title, year, media_type):
-        if not self.tmdb_key:
+        tmdb_key = await self.config.tmdb_key()
+        if not tmdb_key:
             print("TMDb API key is not configured.")
             return None
 
         search_url = f"https://api.themoviedb.org/3/search/{media_type}"
         params = {
-            'api_key': self.tmdb_key,
+            'api_key': tmdb_key,
             'query': title,
             'year': year
         }
 
         try:
+            # Step 1: Search for the TV series or movie
             response = await self.bot.loop.run_in_executor(None, lambda: requests.get(search_url, params=params))
             if response.status_code == 200:
                 data = response.json()
                 if data['results']:
                     first_result = data['results'][0]
-                    poster_path = first_result.get('poster_path')
-                    if poster_path:
-                        image_url = f"https://image.tmdb.org/t/p/original{poster_path}"
-                        print(f"TMDb Image URL for '{title}' ({year}): {image_url}")  # Log the URL for debugging
-                        return image_url
+                    media_id = first_result['id']
+                    
+                    # Step 2: Fetch images using the media ID
+                    images_url = f"https://api.themoviedb.org/3/{media_type}/{media_id}/images"
+                    images_params = {
+                        'api_key': tmdb_key
+                    }
+                    images_response = await self.bot.loop.run_in_executor(None, lambda: requests.get(images_url, params=images_params))
+                    if images_response.status_code == 200:
+                        images_data = images_response.json()
+                        if 'backdrops' in images_data and images_data['backdrops']:
+                            backdrop_path = images_data['backdrops'][0]['file_path']
+                            if backdrop_path:
+                                image_url = f"https://image.tmdb.org/t/p/original{backdrop_path}"
+                                print(f"TMDb Backdrop Image URL for '{title}' ({year}): {image_url}")  # Log the URL for debugging
+                                return image_url
+                        else:
+                            print(f"No backdrops found for '{title}' ({year}).")
+                    else:
+                        print(f"Error: TMDb API responded with status code {images_response.status_code} when fetching images.")
             else:
                 print(f"Error: TMDb API responded with status code {response.status_code}")
         except Exception as e:
