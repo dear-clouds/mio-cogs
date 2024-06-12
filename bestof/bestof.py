@@ -642,7 +642,10 @@ class BestOf(commands.Cog):
                 if data['response']['result'] == 'success':
                     image_url = data['response']['data'].get('art') or data['response']['data'].get('thumb')
                     if image_url:
-                        return f"{tautulli_url}/pms_image_proxy?img={image_url}.jpg"
+                        full_url = f"{tautulli_url}/pms_image_proxy?img={image_url}.jpg"
+                        # Ensure URL is well-formed
+                        if requests.utils.requote_uri(full_url):
+                            return full_url
             else:
                 print(f"Error: Tautulli API responded with status code {response.status_code}")
         except Exception as e:
@@ -796,7 +799,6 @@ class PreviousButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         self.view.current_page -= 1
         await self.view.update_embed(interaction)
-
 class TitleSelectView(discord.ui.View):
     def __init__(self, cog, interaction, library_name, search_results):
         super().__init__(timeout=60)
@@ -836,11 +838,11 @@ class TitleSelectView(discord.ui.View):
 
     async def update_message(self, interaction):
         item = self.search_results[self.current_index]
-        embed = self.create_embed(item)
+        embed = await self.create_embed(item)
         await interaction.response.edit_message(embed=embed, view=self)
         self.update_buttons()
 
-    def create_embed(self, item):
+    async def create_embed(self, item):
         role_color = discord.Color.default()
         if isinstance(self.interaction.user, discord.Member):
             roles = sorted(self.interaction.user.roles, key=lambda r: r.position, reverse=True)
@@ -858,7 +860,7 @@ class TitleSelectView(discord.ui.View):
             color=role_color
         )
 
-        poster_url = self.cog.fetch_image_from_tautulli(item.key)
+        poster_url = await self.cog.fetch_image_from_tautulli(item.key)
         if poster_url:
             embed.set_image(url=poster_url)
 
