@@ -235,6 +235,55 @@ class BestOf(commands.Cog):
         # Define a view for pagination
         view = TitleSelectView(self, interaction, library_name, search_results)
         await interaction.followup.send(content="Please select the correct title using the buttons below.", view=view)
+        
+    async def confirm_vote(self, interaction, library_name, item):
+        item_key = item.key
+        item_title = item.title
+        item_year = item.year if item.year else "Unknown Year"
+
+        # Get current year
+        current_year = datetime.now().year
+
+        if item.year is None or item.year >= current_year:
+            await interaction.followup.send(f"You can only vote for titles from previous years, not from {current_year}.", ephemeral=True)
+            return
+
+        # Retrieve the current votes for the user
+        user_votes = await self.config.user(interaction.user).votes()
+
+        # Use the title's release year as the key
+        year_str = str(item_year)
+        year_votes = user_votes.get(year_str, {})
+        library_vote = year_votes.get(library_name, {})
+
+        if library_vote:
+            existing_title = library_vote.get('title')
+            if existing_title:
+                # Send a confirmation message
+                confirm_message = await interaction.followup.send(
+                    f"You have already voted for **{existing_title}** in **{library_name}** for the year **{item_year}**. "
+                    "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
+                )
+
+                # Check for user response
+                def check_confirm(m):
+                    return m.author == interaction.user and m.channel == interaction.channel
+
+                try:
+                    confirm_response = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
+                    if confirm_response.content.lower() != 'yes':
+                        await interaction.followup.send("Vote not replaced.", ephemeral=True)
+                        return
+                except asyncio.TimeoutError:
+                    await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
+                    return
+
+        # Add or update the vote
+        year_votes[library_name] = {'title': item_title, 'item_key': item_key}
+        user_votes[year_str] = year_votes
+        await self.config.user(interaction.user).votes.set(user_votes)
+
+        await interaction.followup.send(f"Vote for `{item_title}` ({item_year}) recorded.", ephemeral=True)
 
     async def get_top_titles(self):
         # Get data for all users who voted
@@ -873,52 +922,3 @@ class TitleSelectView(discord.ui.View):
 
     async def interaction_check(self, interaction):
         return interaction.user == self.interaction.user
-
-async def confirm_vote(self, interaction, library_name, item):
-    item_key = item.key
-    item_title = item.title
-    item_year = item.year if item.year else "Unknown Year"
-
-    # Get current year
-    current_year = datetime.now().year
-
-    if item.year is None or item.year >= current_year:
-        await interaction.followup.send(f"You can only vote for titles from previous years, not from {current_year}.", ephemeral=True)
-        return
-
-    # Retrieve the current votes for the user
-    user_votes = await self.config.user(interaction.user).votes()
-
-    # Use the title's release year as the key
-    year_str = str(item_year)
-    year_votes = user_votes.get(year_str, {})
-    library_vote = year_votes.get(library_name, {})
-
-    if library_vote:
-        existing_title = library_vote.get('title')
-        if existing_title:
-            # Send a confirmation message
-            confirm_message = await interaction.followup.send(
-                f"You have already voted for **{existing_title}** in **{library_name}** for the year **{item_year}**. "
-                "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
-            )
-
-            # Check for user response
-            def check_confirm(m):
-                return m.author == interaction.user and m.channel == interaction.channel
-
-            try:
-                confirm_response = await self.bot.wait_for("message", timeout=30.0, check=check_confirm)
-                if confirm_response.content.lower() != 'yes':
-                    await interaction.followup.send("Vote not replaced.", ephemeral=True)
-                    return
-            except asyncio.TimeoutError:
-                await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
-                return
-
-    # Add or update the vote
-    year_votes[library_name] = {'title': item_title, 'item_key': item_key}
-    user_votes[year_str] = year_votes
-    await self.config.user(interaction.user).votes.set(user_votes)
-
-    await interaction.followup.send(f"Vote for `{item_title}` ({item_year}) recorded.", ephemeral=True)
