@@ -653,8 +653,9 @@ class BestOf(commands.Cog):
                 category[:] = category[:6]
 
         # Create a single embed for all titles
-        embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites ({total_votes})", color=member.top_role.color)
+        embed = discord.Embed(title=f"❤️ {member.display_name}'s Favorites", color=member.top_role.color)
         embed.set_thumbnail(url=member.avatar.url)
+        embed.set_footer(text=f"{member.display_name} has voted for {total_votes} titles")
 
         field_count = 0
         for category_name, title_list in categories.items():
