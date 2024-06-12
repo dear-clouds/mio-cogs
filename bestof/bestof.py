@@ -918,7 +918,7 @@ class TitleSelectView(discord.ui.View):
     async def confirm_selection(self, interaction):
         item = self.search_results[self.current_index]
         await self.cog.confirm_vote(self.interaction, self.library_name, item)
-        await interaction.response.edit_message(content="Vote recorded.", embed=None, view=None)
+        # await interaction.response.edit_message(content="Vote recorded.", embed=None, view=None)
 
     async def interaction_check(self, interaction):
         return interaction.user == self.interaction.user
