@@ -202,17 +202,15 @@ class BestOf(commands.Cog):
         await ctx.send("Select a Library to Vote In. **You can only vote for one title per library and per year.**", view=view)
 
     async def add_vote(self, interaction, library_name: str, title: str, is_tv_show: bool = False):
-        # Ensure the Plex server has been initialized
         if not self.plex:
             await interaction.followup.send("The Plex server has not been configured.", ephemeral=True)
             return
 
-        # Find the library with the given name
         try:
             libraries = self.plex.library.sections()
         except Exception as e:
             await interaction.followup.send("Failed to retrieve libraries from Plex server.")
-            return  # Early return on error
+            return
 
         library = next((lib for lib in libraries if lib.title == library_name), None)
         if not library:
@@ -220,45 +218,49 @@ class BestOf(commands.Cog):
             return
 
         try:
+            results = library.search(title)
             if is_tv_show:
-                item = next((show for show in library.search(title) if show.type == 'show'), None)
+                results = [item for item in results if item.type == 'show']
             else:
-                item = next((movie for movie in library.search(title) if movie.type == 'movie'), None)
+                results = [item for item in results if item.type == 'movie']
         except Exception as e:
             await interaction.followup.send("Failed to search for the title in Plex library.")
-            return  # Early return on error
+            return
 
-        if not item:
+        if not results:
             await interaction.followup.send("Item not found.")
             return
-        
+
+        async def select_callback(interaction, selected_item):
+            await self.finalize_vote(interaction, library_name, selected_item)
+
+        view = ResultSelectView(results, interaction.user, select_callback)
+        await interaction.followup.send("Please select the correct title:", view=view)
+
+    async def finalize_vote(self, interaction, library_name, item):
         item_key = item.key
         item_title = item.title
         item_year = item.year if item.year else "Unknown Year"
         poster_url = await self.fetch_image_from_tautulli(item_key)
 
-        # Get current year
         current_year = datetime.now().year
-        
+
         if item.year is None or item.year >= current_year:
             await interaction.followup.send(f"You can only vote for titles from previous years, not from {current_year}.", ephemeral=True)
             return
 
-        # Confirm with the user that the correct item was found
         plex_web_url = f"https://app.plex.tv/web/index.html#!/server/{self.plex.machineIdentifier}/details?key={item.key}"
         title_year = item.year if item.year else "Unknown Year"
-        
-        # Get the member's highest role with a non-default color
+
         member = interaction.user
         role_color = discord.Color.default()
         if isinstance(member, discord.Member):
             roles = sorted(member.roles, key=lambda r: r.position, reverse=True)
             for role in roles:
-                if role.color.value != 0:  # Check if the role has a non-default color
+                if role.color.value != 0:
                     role_color = role.color
                     break
 
-        # Creating the embed
         embed = discord.Embed(
             title=item.title,
             url=plex_web_url,
@@ -266,20 +268,16 @@ class BestOf(commands.Cog):
             color=role_color
         )
 
-        # Add poster URL if available
         if poster_url:
             embed.set_image(url=poster_url)
 
-        # Send a message mentioning the user along with the embed
-        user_mention = interaction.user.mention  # Get the mention string for the user
+        user_mention = interaction.user.mention
         mention_message = f"{user_mention}, please confirm the title."
-        
-        # Send the embed and add reactions to the same message
+
         msg = await interaction.followup.send(content=mention_message, embed=embed)
         await msg.add_reaction("✅")
         await msg.add_reaction("❌")
 
-        # Reaction check
         def check(reaction, user):
             return user == interaction.user and reaction.message.id == msg.id and str(reaction.emoji) in ["✅", "❌"]
 
@@ -291,11 +289,9 @@ class BestOf(commands.Cog):
         except asyncio.TimeoutError:
             await interaction.followup.send("No response received. Vote canceled.", ephemeral=True)
             return
-        
-        # Retrieve the current votes for the user
+
         user_votes = await self.config.user(interaction.user).votes()
-        
-        # Use the title's release year as the key
+
         year_str = str(item_year)
         year_votes = user_votes.get(year_str, {})
         library_vote = year_votes.get(library_name, {})
@@ -303,13 +299,11 @@ class BestOf(commands.Cog):
         if library_vote:
             existing_title = library_vote.get('title')
             if existing_title:
-                # Send a confirmation message
                 confirm_message = await interaction.followup.send(
                     f"You have already voted for **{existing_title}** in **{library_name}** for the year **{item_year}**. "
                     "Do you want to replace it? Respond with 'Yes' to replace or 'No' to cancel."
                 )
 
-                # Check for user response
                 def check_confirm(m):
                     return m.author == interaction.user and m.channel == interaction.channel
 
@@ -322,12 +316,11 @@ class BestOf(commands.Cog):
                     await interaction.followup.send("Response timed out. Vote not replaced.", ephemeral=True)
                     return
 
-        # Add or update the vote
         year_votes[library_name] = {'title': item_title, 'item_key': item_key}
         user_votes[year_str] = year_votes
         await self.config.user(interaction.user).votes.set(user_votes)
 
-        await interaction.followup.send(f"Vote for `{title}` ({item_year}) recorded.", ephemeral=True)
+        await interaction.followup.send(f"Vote for `{item_title}` ({item_year}) recorded.", ephemeral=True)
 
     async def get_top_titles(self):
         # Get data for all users who voted
@@ -889,3 +882,45 @@ class PreviousButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         self.view.current_page -= 1
         await self.view.update_embed(interaction)
+
+class ResultSelectView(View):
+    def __init__(self, results, user, callback):
+        super().__init__()
+        self.results = results
+        self.user = user
+        self.callback = callback
+        self.current_index = 0
+        self.max_index = len(results) - 1
+
+        self.update_buttons()
+
+    def update_buttons(self):
+        self.clear_items()
+        for i, result in enumerate(self.results):
+            button = Button(label=result.title, style=discord.ButtonStyle.primary)
+            button.custom_id = str(i)
+            button.callback = self.result_selected
+            self.add_item(button)
+        if self.max_index > 0:
+            if self.current_index > 0:
+                prev_button = Button(label="Previous", style=discord.ButtonStyle.secondary)
+                prev_button.callback = self.previous
+                self.add_item(prev_button)
+            if self.current_index < self.max_index:
+                next_button = Button(label="Next", style=discord.ButtonStyle.secondary)
+                next_button.callback = self.next
+                self.add_item(next_button)
+
+    async def previous(self, interaction: discord.Interaction):
+        self.current_index -= 1
+        self.update_buttons()
+        await interaction.response.edit_message(view=self)
+
+    async def next(self, interaction: discord.Interaction):
+        self.current_index += 1
+        self.update_buttons()
+        await interaction.response.edit_message(view=self)
+
+    async def result_selected(self, interaction: discord.Interaction):
+        index = int(interaction.custom_id)
+        await self.callback(interaction, self.results[index])
