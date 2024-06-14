@@ -310,7 +310,7 @@ class JobView(discord.ui.View):
         # Do nothing, to keep the view active
         pass
 
-    @discord.ui.button(label="Apply", emoji="💼", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Apply", emoji="💼", style=discord.ButtonStyle.primary, custom_id="apply_button")
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         
@@ -342,7 +342,7 @@ class JobView(discord.ui.View):
 
             await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
 
-    @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger, disabled=True)
+    @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id="untake_button", disabled=True)
     async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
         taker = interaction.user
@@ -372,7 +372,7 @@ class JobView(discord.ui.View):
 
         await interaction.response.send_message("You have untaken the job.", ephemeral=True)
 
-    @discord.ui.button(label="Mark job as done", emoji="✔️", style=discord.ButtonStyle.green, disabled=True)
+    @discord.ui.button(label="Mark job as done", emoji="✔️", style=discord.ButtonStyle.green, custom_id="job_done_button", disabled=True)
     async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         job_id = self.job_id
         user = interaction.user
@@ -429,7 +429,7 @@ class JobView(discord.ui.View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return await self.jobs_cog.can_create(interaction.user)
 
-    @discord.ui.button(label="Post a job", emoji="➕", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Post a job", emoji="➕", style=discord.ButtonStyle.secondary, custom_id="post_job")
     async def post_job_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Ensure that the user has the permission to create a job
         if not await self.jobs_cog.can_create(interaction.user):
