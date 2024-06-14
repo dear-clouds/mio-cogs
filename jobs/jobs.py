@@ -188,7 +188,7 @@ class Jobs(commands.Cog):
                             continue
                         view = JobView(self, job_id=int(job_id))
                         view._message = job_message
-                        await job_message.edit(view=view)
+                        await view.refresh_buttons()
                     except discord.NotFound:
                         continue
 
@@ -303,12 +303,16 @@ class JobView(discord.ui.View):
         self._message = None
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        # Check if the user interacting with the button has the appropriate role
         return await self.jobs_cog.can_take(interaction.user)
 
-    async def on_timeout(self) -> None:
-        # Do nothing, to keep the view active
-        pass
+    async def refresh_buttons(self):
+        async with self.jobs_cog.config.guild(self._message.guild).jobs() as jobs:
+            job = jobs.get(str(self.job_id))
+            if job:
+                self.apply_button.disabled = job.get("taker") is not None
+                self.untake_button.disabled = job.get("taker") != interaction.user.id
+                self.job_done_button.disabled = job.get("creator") != interaction.user.id or job.get("status") != "in_progress"
+                await self._message.edit(view=self)
 
     @discord.ui.button(label="Apply", emoji="💼", style=discord.ButtonStyle.primary, custom_id="apply_button")
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -321,7 +325,7 @@ class JobView(discord.ui.View):
         async with self.jobs_cog.config.guild(guild).jobs() as jobs:
             job = jobs.get(str(job_id))
             if not job or job["taker"]:
-                await interaction.response.send_message("This job has already been taken.", ephemeral=True)
+                await interaction.followup.send("This job has already been taken.", ephemeral=True)
                 return
 
             job["taker"] = taker.id
@@ -332,15 +336,13 @@ class JobView(discord.ui.View):
             if thread:
                 await thread.send(f"{taker.mention} has taken the job.")
 
-            # Update the message embed and disable the apply button
+            # Update the message embed and refresh buttons
             embed = self._message.embeds[0]
             embed.set_field_at(1, name="Taken by", value=taker.mention)
-            self.children[0].disabled = True  # Apply button
-            self.children[1].disabled = False  # Untake button
-            self.children[2].disabled = False  # Job done button
-            await self._message.edit(embed=embed, view=self)
+            await self._message.edit(embed=embed)
+            await self.refresh_buttons()
 
-            await interaction.response.send_message("You have successfully applied for the job.", ephemeral=True)
+            await interaction.followup.send("You have successfully applied for the job.", ephemeral=True)
 
     @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id="untake_button", disabled=True)
     async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -351,7 +353,7 @@ class JobView(discord.ui.View):
         async with self.jobs_cog.config.guild(guild).jobs() as jobs:
             job = jobs.get(str(job_id))
             if not job or job["taker"] != taker.id:
-                await interaction.response.send_message("You cannot untake a job you haven't taken.", ephemeral=True)
+                await interaction.followup.send("You cannot untake a job you haven't taken.", ephemeral=True)
                 return
 
             job["taker"] = None
@@ -362,15 +364,13 @@ class JobView(discord.ui.View):
             if thread:
                 await thread.send(f"{taker.mention} has untaken the job.")
 
-        # Update the message embed and enable the apply button
+        # Update the message embed and refresh buttons
         embed = self._message.embeds[0]
         embed.set_field_at(1, name="Taken by", value="Not yet taken")
-        self.children[0].disabled = False  # Apply button
-        self.children[1].disabled = True   # Untake button
-        self.children[2].disabled = True   # Job done button
-        await self._message.edit(embed=embed, view=self)
+        await self._message.edit(embed=embed)
+        await self.refresh_buttons()
 
-        await interaction.response.send_message("You have untaken the job.", ephemeral=True)
+        await interaction.followup.send("You have untaken the job.", ephemeral=True)
 
     @discord.ui.button(label="Mark job as done", emoji="✔️", style=discord.ButtonStyle.green, custom_id="job_done_button", disabled=True)
     async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -381,16 +381,16 @@ class JobView(discord.ui.View):
         async with self.jobs_cog.config.guild(guild).jobs() as jobs:
             job = jobs.get(str(job_id))
             if not job:
-                await interaction.response.send_message("Job not found.", ephemeral=True)
+                await interaction.followup.send("Job not found.", ephemeral=True)
                 return
 
             # Check if the user is the job creator
             if job["creator"] != user.id:
-                await interaction.response.send_message("You are not authorized to mark this job as done.", ephemeral=True)
+                await interaction.followup.send("You are not authorized to mark this job as done.", ephemeral=True)
                 return
 
             if job["status"] != "in_progress":
-                await interaction.response.send_message("This job cannot be marked as done.", ephemeral=True)
+                await interaction.followup.send("This job cannot be marked as done.", ephemeral=True)
                 return
 
             # Mark the job as complete
@@ -402,9 +402,9 @@ class JobView(discord.ui.View):
             if taker_id:
                 taker = guild.get_member(taker_id)
                 if taker:
-                    taker_data = await self.config.user(taker).all()
+                    taker_data = await self.jobs_cog.config.user(taker).all()
                     jobs_taken = taker_data.get("jobs_taken", 0) + 1
-                    await self.config.user(taker).jobs_taken.set(jobs_taken)
+                    await self.jobs_cog.config.user(taker).jobs_taken.set(jobs_taken)
                     await bank.deposit_credits(taker, job["salary"])
 
                 # Delete the initial message with buttons
@@ -424,7 +424,7 @@ class JobView(discord.ui.View):
                     await thread.send(embed=embed)
                     await thread.send(f"{creator.mention} has marked the job as complete and the salary has been sent to {taker.mention}.")
 
-        await interaction.response.send_message("Job has been marked as complete.", ephemeral=True)
+        await interaction.followup.send("Job has been marked as complete.", ephemeral=True)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return await self.jobs_cog.can_create(interaction.user)
@@ -433,7 +433,7 @@ class JobView(discord.ui.View):
     async def post_job_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Ensure that the user has the permission to create a job
         if not await self.jobs_cog.can_create(interaction.user):
-            await interaction.response.send_message("You do not have permission to post a job.", ephemeral=True)
+            await interaction.followup.send("You do not have permission to post a job.", ephemeral=True)
             return
 
         # Send the modal to the user
