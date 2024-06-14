@@ -18,6 +18,8 @@ class Jobs(commands.Cog):
         default_user = {"jobs_posted": 0, "jobs_taken": 0}
         self.config.register_user(**default_user)
         self.config.register_guild(**default_guild)
+        bot.add_view(JobView(self, None))  # Registering the view as persistent
+        self.refresh_views.start()  # Start the view refresh task
 
     @commands.group()
     @commands.guild_only()
@@ -160,6 +162,38 @@ class Jobs(commands.Cog):
             embed.add_field(name=f"Jobs Posted ({len(posted_job_links)})", value="\n".join(posted_job_links), inline=True)
             embed.add_field(name=f"Jobs Completed ({len(taken_job_links)})", value="\n".join(taken_job_links), inline=True)
             await ctx.send(embed=embed)
+            
+    @tasks.loop(minutes=10)  # Run this task every 10 minutes
+    async def refresh_views(self):
+        """Refresh views on existing job posts to keep them active."""
+        for guild in self.bot.guilds:
+            job_channel_id = await self.config.guild(guild).job_channel_id()
+            if not job_channel_id:
+                continue
+
+            job_channel = guild.get_channel(job_channel_id)
+            if not job_channel:
+                continue
+
+            async with self.config.guild(guild).jobs() as jobs:
+                for job_id, job_data in jobs.items():
+                    message_id = job_data.get("message_id")
+                    if not message_id:
+                        continue
+
+                    try:
+                        job_message = await job_channel.fetch_message(message_id)
+                        if not job_message:
+                            continue
+                        view = JobView(self, job_id=int(job_id))
+                        view._message = job_message
+                        await job_message.edit(view=view)
+                    except discord.NotFound:
+                        continue
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        self.refresh_views.start()  # Start the task when the bot is ready
 
     @app_commands.command(name='job')
     async def add_job_slash(self, interaction: discord.Interaction, title: str, salary: int, description: str,
@@ -168,13 +202,11 @@ class Jobs(commands.Cog):
         await self.add_job(interaction, title, salary, description, image, color)
 
     @jobs.command(name='add')
-    async def add_job_message(self, ctx: commands.Context, title: str, salary: int, description: str,
-                              image: Optional[str] = None, color: Optional[str] = None):
+    async def add_job_message(self, ctx: commands.Context, title: str, salary: int, description: str, image: Optional[str] = None, color: Optional[str] = None):
         """Create a new job posting"""
         await self.add_job(ctx, title, salary, description, image, color)
 
-    async def add_job(self, context, title: str, salary: int, description: str,
-                  image: Optional[str] = None, color: Optional[str] = None):
+    async def add_job(self, context, title: str, salary: int, description: str, image: Optional[str] = None, color: Optional[str] = None):
         """Helper function to create a job"""
         if isinstance(context, commands.Context):
             author = context.author
