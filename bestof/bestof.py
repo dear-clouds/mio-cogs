@@ -866,6 +866,9 @@ class TitleSelectView(discord.ui.View):
         self.confirm_button = discord.ui.Button(label="Confirm", style=discord.ButtonStyle.success)
         self.confirm_button.callback = self.confirm_selection
 
+        self.cancel_button = discord.ui.Button(label="Cancel", style=discord.ButtonStyle.danger)
+        self.cancel_button.callback = self.cancel_selection
+
         self.update_buttons()
 
     def update_buttons(self):
@@ -875,7 +878,7 @@ class TitleSelectView(discord.ui.View):
         if self.current_index < len(self.search_results) - 1:
             self.add_item(self.next_button)
         self.add_item(self.confirm_button)
-        self.add_item(discord.ui.Button(label="Cancel", style=discord.ButtonStyle.danger, custom_id="cancel"))
+        self.add_item(self.cancel_button)
 
     async def show_previous(self, interaction):
         self.current_index -= 1
@@ -918,7 +921,10 @@ class TitleSelectView(discord.ui.View):
     async def confirm_selection(self, interaction):
         item = self.search_results[self.current_index]
         await self.cog.confirm_vote(self.interaction, self.library_name, item)
-        # await interaction.response.edit_message(content="Vote recorded.", embed=None, view=None)
+        await interaction.response.edit_message(content="Vote recorded.", embed=None, view=None)
+
+    async def cancel_selection(self, interaction):
+        await interaction.response.edit_message(content="Vote canceled.", embed=None, view=None)
 
     async def interaction_check(self, interaction):
         return interaction.user == self.interaction.user
