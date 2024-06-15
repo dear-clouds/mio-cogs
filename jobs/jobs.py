@@ -448,17 +448,15 @@ class JobView(discord.ui.View):
 
     @discord.ui.button(label="Post a job", emoji="➕", style=discord.ButtonStyle.secondary, custom_id="post_job")
     async def post_job_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-        
         # Ensure that the user has the permission to create a job
         if not await self.jobs_cog.can_create(interaction.user):
-            await interaction.followup.send("You do not have permission to post a job.", ephemeral=True)
+            await interaction.response.send_message("You do not have permission to post a job.", ephemeral=True)
             return
 
         # Send the modal to the user
         modal = JobPostModal(self.jobs_cog)
         await interaction.response.send_modal(modal)
-            
+
 class JobPostModal(discord.ui.Modal, title="Post a New Job"):
     def __init__(self, jobs_cog):
         super().__init__()
