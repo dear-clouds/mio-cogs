@@ -39,14 +39,20 @@ class BestOf(commands.Cog):
         await self.initialize()
 
     async def initialize(self):
-        await self.bot.wait_until_ready()
+        # Wait for the bot to be ready with a timeout
+        try:
+            await asyncio.wait_for(self.bot.wait_until_ready(), timeout=30.0)
+        except asyncio.TimeoutError:
+            print("Timeout while waiting for bot to be ready")
+            return
+
         plex_server_url = await self.config.plex_server_url()
         plex_server_auth_token = await self.config.plex_server_auth_token()
         self.tmdb_key = await self.config.tmdb_key()
         self.description = await self.config.description()
         self.poster_url = await self.config.poster()
         self.sort_title = await self.config.sort_title()
-        
+
         try:
             self.plex = PlexServer(plex_server_url, plex_server_auth_token)
             self.server_name = self.plex.friendlyName
