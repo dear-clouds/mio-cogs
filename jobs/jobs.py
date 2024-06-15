@@ -190,7 +190,6 @@ class Jobs(commands.Cog):
                         view = JobView(self, job_id=int(job_id))
                         view._message = job_message
                         job_status = job_data.get("status", "open")
-                        job_creator = job_data.get("creator")
                         job_taker = job_data.get("taker")
 
                         # Disable/enable buttons based on job status
@@ -201,7 +200,7 @@ class Jobs(commands.Cog):
                                 elif item.custom_id == "untake_button":
                                     item.disabled = job_status != "in_progress" or job_taker != job_message.author.id
                                 elif item.custom_id == "job_done_button":
-                                    item.disabled = job_status != "in_progress" or job_creator != job_message.author.id
+                                    item.disabled = job_status != "in_progress"
 
                         await job_message.edit(view=view)
                     except discord.NotFound:
@@ -318,20 +317,19 @@ class JobView(discord.ui.View):
         self._message = None
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        # Check if the user interacting with the button has the appropriate role
-        job = await self.jobs_cog.config.guild(interaction.guild).jobs.get_raw(str(self.job_id), default=None)
-        if job:
-            return interaction.user.id == job["creator"] or await self.jobs_cog.can_take(interaction.user)
-        return False
+        job_id = self.job_id
+        guild = interaction.guild
 
-    async def on_timeout(self) -> None:
-        # Do nothing, to keep the view active
-        pass
+        async with self.jobs_cog.config.guild(guild).jobs() as jobs:
+            job = jobs.get(str(job_id))
+            if job and (job["creator"] == interaction.user.id or await self.jobs_cog.can_take(interaction.user)):
+                return True
+        return False
 
     @discord.ui.button(label="Apply", emoji="💼", style=discord.ButtonStyle.primary, custom_id="apply_button")
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
-
+        
         job_id = self.job_id
         taker = interaction.user
         guild = interaction.guild
@@ -362,8 +360,6 @@ class JobView(discord.ui.View):
 
     @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id="untake_button", disabled=True)
     async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-
         job_id = self.job_id
         taker = interaction.user
         guild = interaction.guild
@@ -394,8 +390,6 @@ class JobView(discord.ui.View):
 
     @discord.ui.button(label="Mark job as done", emoji="✔️", style=discord.ButtonStyle.green, custom_id="job_done_button", disabled=True)
     async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-
         job_id = self.job_id
         user = interaction.user
         guild = interaction.guild
