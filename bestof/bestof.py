@@ -36,7 +36,7 @@ class BestOf(commands.Cog):
         self.tmdb_key = None    
 
     async def cog_load(self):
-        await self.initialize()
+        self.bot.loop.create_task(self.initialize())
 
     async def initialize(self):
         # Wait for the bot to be ready with a timeout
