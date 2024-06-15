@@ -360,6 +360,8 @@ class JobView(discord.ui.View):
 
     @discord.ui.button(label="Untake Job", style=discord.ButtonStyle.danger, custom_id="untake_button", disabled=True)
     async def untake_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        
         job_id = self.job_id
         taker = interaction.user
         guild = interaction.guild
@@ -390,6 +392,8 @@ class JobView(discord.ui.View):
 
     @discord.ui.button(label="Mark job as done", emoji="✔️", style=discord.ButtonStyle.green, custom_id="job_done_button", disabled=True)
     async def job_done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        
         job_id = self.job_id
         user = interaction.user
         guild = interaction.guild
@@ -444,6 +448,8 @@ class JobView(discord.ui.View):
 
     @discord.ui.button(label="Post a job", emoji="➕", style=discord.ButtonStyle.secondary, custom_id="post_job")
     async def post_job_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        
         # Ensure that the user has the permission to create a job
         if not await self.jobs_cog.can_create(interaction.user):
             await interaction.followup.send("You do not have permission to post a job.", ephemeral=True)
@@ -509,25 +515,25 @@ class JobPostModal(discord.ui.Modal, title="Post a New Job"):
             if salary <= 0:
                 raise ValueError
         except ValueError:
-            await interaction.response.send_message("Invalid salary. Please enter a positive number.", ephemeral=True)
+            await interaction.followup.send("Invalid salary. Please enter a positive number.", ephemeral=True)
             return
 
         # Validate color, if provided
         color = None
         if color_str:
             if not color_str.startswith('#') or len(color_str) != 7:
-                await interaction.response.send_message("Invalid color code. Please enter a hex code like #FF5733.", ephemeral=True)
+                await interaction.followup.send("Invalid color code. Please enter a hex code like #FF5733.", ephemeral=True)
                 return
             try:
                 color = int(color_str[1:], 16)
             except ValueError:
-                await interaction.response.send_message("Invalid color code. Please enter a valid hex code.", ephemeral=True)
+                await interaction.followup.send("Invalid color code. Please enter a valid hex code.", ephemeral=True)
                 return
 
         # Use the add_job method to create a new job
         await self.jobs_cog.add_job(interaction, job_title, salary, description, image, color_str)
 
-        await interaction.response.send_message(f"Job '{job_title}' created successfully!", ephemeral=True)
+        await interaction.followup.send(f"Job '{job_title}' created successfully!", ephemeral=True)
 
 class Paginator:
     def __init__(self, ctx, embeds):
