@@ -308,8 +308,8 @@ class Jobs(commands.Cog):
             job["message_id"] = job_message.id
 
         await send_method(f"Job created with ID {job_id}", ephemeral=True)
-
-class JobView(discord.ui.View):
+        
+        class JobView(discord.ui.View):
     def __init__(self, jobs_cog, job_id: int):
         super().__init__(timeout=None)
         self.jobs_cog = jobs_cog
